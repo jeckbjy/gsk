@@ -2,8 +2,9 @@ package base
 
 import (
 	"errors"
-	"github.com/jeckbjy/micro/anet"
 	"math"
+
+	"github.com/jeckbjy/gsk/anet"
 )
 
 var ErrIndexOverflow = errors.New("filter index overflow")

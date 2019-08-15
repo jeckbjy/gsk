@@ -1,8 +1,8 @@
 package arpc
 
 import (
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/registry"
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/registry"
 )
 
 func WithSTran(tran anet.ITran) ServerOption {

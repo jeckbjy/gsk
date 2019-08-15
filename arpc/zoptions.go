@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jeckbjy/micro/anet"
-	_ "github.com/jeckbjy/micro/anet/tcp"
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/selector"
-	"github.com/jeckbjy/micro/util/id"
-	"github.com/jeckbjy/micro/util/options"
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/arpc/registry"
+	"github.com/jeckbjy/gsk/arpc/selector"
+	"github.com/jeckbjy/gsk/util/id"
+	"github.com/jeckbjy/gsk/util/options"
 )
 
 const (
@@ -53,7 +52,7 @@ func (o *ServerOptions) Init(opts ...ServerOption) {
 
 func (o *ServerOptions) SetDefaults() {
 	if o.Tran == nil {
-		o.Tran = anet.DefaultCreator()
+		o.Tran = anet.NewDefault()
 		if o.Chain != nil {
 			o.Tran.SetChain(o.Chain)
 		} else {

@@ -1,16 +1,17 @@
 package tcp
 
 import (
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/anet/base"
 	"net"
+
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/anet/base"
 )
 
 func init() {
-	anet.DefaultCreator = NewTran
+	anet.Add("tcp", New)
 }
 
-func NewTran() anet.ITran {
+func New() anet.ITran {
 	return &Tran{}
 }
 

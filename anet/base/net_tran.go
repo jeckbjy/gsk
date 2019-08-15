@@ -1,9 +1,10 @@
 package base
 
 import (
-	"github.com/jeckbjy/micro/anet"
 	"net"
 	"time"
+
+	"github.com/jeckbjy/gsk/anet"
 )
 
 type ListenCB func() (net.Listener, error)
@@ -33,10 +34,15 @@ func (t *Tran) AddFilters(filters ...anet.IFilter) {
 	t.chain.AddLast(filters...)
 }
 
-func (t *Tran) Stop() {
+func (t *Tran) Close() error {
+	var err error
 	for _, l := range t.listeners {
-		_ = l.Close()
+		if e := l.Close(); e != nil {
+			err = e
+		}
 	}
+
+	return err
 }
 
 func DoOpen(c net.Conn, tran anet.ITran, client bool, tag string) *Conn {

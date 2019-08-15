@@ -1,8 +1,6 @@
 package base
 
-import (
-	"github.com/jeckbjy/micro/anet"
-)
+import "github.com/jeckbjy/gsk/anet"
 
 func NewFilterChain() *FilterChain {
 	return &FilterChain{filters: []anet.IFilter{&TransferFilter{}}}

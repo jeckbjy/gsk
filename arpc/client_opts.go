@@ -1,9 +1,9 @@
 package arpc
 
 import (
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/selector"
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/arpc/selector"
+	"github.com/jeckbjy/gsk/registry"
 )
 
 func WithCTran(tran anet.ITran) ClientOption {

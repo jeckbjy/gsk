@@ -3,9 +3,10 @@ package arpc
 
 import (
 	"errors"
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/codec"
-	"github.com/jeckbjy/micro/util/buffer"
+
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/arpc/codec"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
 var (
@@ -60,6 +61,9 @@ type IPacket interface {
 	Encode(b *buffer.Buffer) error
 	Decode(b *buffer.Buffer) error
 }
+
+type IRequest = IPacket
+type IResponse = IPacket
 
 // 消息通信上约定一个Request必须至少返回一个Response,多于一个Rsp的需要手动send消息
 // 这样限制在实现Proxy时,可以做一个队列，等到上一个消息处理完再发送下一个消息

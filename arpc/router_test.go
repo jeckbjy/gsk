@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jeckbjy/micro/codec/jsonc"
-	"github.com/jeckbjy/micro/util/buffer"
+	"github.com/jeckbjy/gsk/arpc/codec/jsonc"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
 type EchoReq struct {

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeckbjy/micro/util/reflects"
-	"github.com/jeckbjy/micro/util/times"
+	"github.com/jeckbjy/gsk/util/reflects"
+	"github.com/jeckbjy/gsk/util/times"
 )
 
 func NewRouter() IRouter {

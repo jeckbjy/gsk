@@ -3,6 +3,8 @@ package arpc
 import (
 	"fmt"
 	"testing"
+
+	_ "github.com/jeckbjy/gsk/anet/tcp"
 )
 
 func TestDemo(t *testing.T) {

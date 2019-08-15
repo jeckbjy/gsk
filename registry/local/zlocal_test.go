@@ -2,12 +2,13 @@ package local
 
 import (
 	"fmt"
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/util/ssdp"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/util/ssdp"
 )
 
 func TestRegister(t *testing.T) {
@@ -19,7 +20,7 @@ func TestRegister(t *testing.T) {
 	r := &localRegistry{}
 	_ = r.Init()
 	r.Start()
-	node := &registry.Node{Id: "aaa", Address: "127.0.0.1", Port: 9999}
+	node := &registry.Node{Id: "aaa", Address: "127.0.0.1:9999"}
 	s := &registry.Service{Name: "test", Nodes: []*registry.Node{node}}
 	_ = r.Register(s)
 
@@ -49,7 +50,7 @@ func TestRegister(t *testing.T) {
 
 	time.Sleep(time.Second)
 	// add another node
-	n1 := &registry.Node{Id: "bbb", Address: "127.0.0.1", Port: 9999}
+	n1 := &registry.Node{Id: "bbb", Address: "127.0.0.1:9999"}
 	s1 := &registry.Service{Name: "test", Nodes: []*registry.Node{n1}}
 	r.Register(s1)
 

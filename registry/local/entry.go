@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"time"
 
-	"github.com/jeckbjy/micro/registry"
+	"github.com/jeckbjy/gsk/registry"
 )
 
 func newEntry(srv *registry.Service, ttl int) *entry {

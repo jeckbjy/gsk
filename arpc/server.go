@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/util/addr"
+	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/util/addr"
 )
 
 func NewServer(opts ...ServerOption) IServer {

@@ -4,17 +4,34 @@ package anet
 import (
 	"net"
 
-	"github.com/jeckbjy/micro/util/buffer"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-var DefaultCreator func() ITran
+var Default CreateTranFunc
+var gTranFuncMap = make(map[string]CreateTranFunc)
 
-// NewTran 使用默认的Creator新建一个Transport
-func NewTran() ITran {
-	return DefaultCreator()
+func Add(name string, fn CreateTranFunc) {
+	gTranFuncMap[name] = fn
+	Default = fn
 }
 
+func New(name string) ITran {
+	if fn, ok := gTranFuncMap[name]; ok {
+		return fn()
+	}
+
+	return nil
+}
+
+// NewDefault 新建一个默认的Transport
+func NewDefault() ITran {
+	return Default()
+}
+
+type CreateTranFunc func() ITran
+
 // ITran 创建IConn,可以是tcp,kcp，websocket等协议
+// 不同的Tran可以配置不同的FilterChain
 type ITran interface {
 	String() string
 	GetChain() IFilterChain
@@ -22,11 +39,22 @@ type ITran interface {
 	AddFilters(filters ...IFilter)
 	Dial(addr string, opts ...DialOption) (IConn, error)
 	Listen(addr string, opts ...ListenOption) (IListener, error)
-	Stop()
+	Close() error
 }
+
+type Status int
+
+const (
+	DISCONNECTED = Status(iota)
+	CONNECTED
+	CLOSED
+	RECONNECTING
+	CONNECTING
+)
 
 // IConn 异步收发Socket
 type IConn interface {
+	Status() Status                  // Socket状态
 	LocalAddr() net.Addr             // 本地地址
 	RemoteAddr() net.Addr            // 远程地址
 	Read() *buffer.Buffer            // 异步读缓存
@@ -69,6 +97,8 @@ type IFilterCtx interface {
 
 // IFilterChain 管理IFilter,并链式调用所有IFilter
 // IFilter分为Inbound和Outbound
+// InBound: 从前向后执行,包括Read,Open,Error
+// OutBound:从后向前执行,包括Write,Close
 type IFilterChain interface {
 	Len() int                    // 长度
 	Front() IFilter              // 第一个

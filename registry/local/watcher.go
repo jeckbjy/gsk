@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/util/ssdp"
+	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/util/ssdp"
 )
 
 var errHasRegistered = errors.New("has been registered")

@@ -1,6 +1,6 @@
 package base
 
-import "github.com/jeckbjy/micro/anet"
+import "github.com/jeckbjy/gsk/anet"
 
 // Filter 实现空接口
 type Filter struct {

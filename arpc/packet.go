@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jeckbjy/micro/codec"
-	"github.com/jeckbjy/micro/util/buffer"
+	"github.com/jeckbjy/gsk/arpc/codec"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
 func NewPacket() IPacket {

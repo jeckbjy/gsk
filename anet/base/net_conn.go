@@ -1,14 +1,16 @@
 package base
 
 import (
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/util/buffer"
+	"errors"
 	"net"
 	"sync"
+
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
 func NewConn(tran anet.ITran, client bool, tag string) *Conn {
-	conn := &Conn{tran: tran, client: client, tag: tag}
+	conn := &Conn{tran: tran, client: client, tag: tag, status: anet.DISCONNECTED}
 	conn.rbuf = buffer.New()
 	conn.wbuf = buffer.New()
 	return conn
@@ -24,6 +26,7 @@ type Conn struct {
 	writing bool           // 写线程是否在执行中
 	mutex   sync.Mutex     // 锁
 	onClose func()         // 关闭时回调,用于自动断线重连
+	status  anet.Status
 }
 
 func (c *Conn) SetCloseCallback(cb func()) {
@@ -32,6 +35,10 @@ func (c *Conn) SetCloseCallback(cb func()) {
 
 func (c *Conn) GetChain() anet.IFilterChain {
 	return c.tran.GetChain()
+}
+
+func (c *Conn) Status() anet.Status {
+	return c.status
 }
 
 func (c *Conn) LocalAddr() net.Addr {
@@ -49,8 +56,7 @@ func (c *Conn) Open(conn net.Conn) {
 
 	c.mutex.Lock()
 	c.sock = conn
-	//c.rbuf.Clear()
-	//c.wbuf.Clear()
+	c.status = anet.CONNECTED
 	c.mutex.Unlock()
 
 	go c.doRead()
@@ -60,7 +66,17 @@ func (c *Conn) Open(conn net.Conn) {
 }
 
 func (c *Conn) Close() error {
-	return c.sock.Close()
+	c.mutex.Lock()
+	sock := c.sock
+	c.status = anet.CLOSED
+	c.sock = nil
+	c.mutex.Unlock()
+
+	if sock != nil {
+		return sock.Close()
+	} else {
+		return errors.New("bad connection when close")
+	}
 }
 
 func (c *Conn) Read() *buffer.Buffer {
@@ -70,11 +86,16 @@ func (c *Conn) Read() *buffer.Buffer {
 func (c *Conn) Write(buf *buffer.Buffer) error {
 	c.mutex.Lock()
 	c.wbuf.AppendBuffer(buf)
+	writing := c.writing
 	if !c.writing {
 		c.writing = true
-		go c.doWrite()
 	}
 	c.mutex.Unlock()
+
+	if !writing {
+		go c.doWrite()
+	}
+
 	return nil
 }
 

@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jeckbjy/micro/anet"
-	"github.com/jeckbjy/micro/registry"
-	"github.com/jeckbjy/micro/selector"
-	"github.com/jeckbjy/micro/util/id"
+	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/arpc/selector"
+	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/util/id"
 )
 
 func NewClient(opts ...ClientOption) IClient {

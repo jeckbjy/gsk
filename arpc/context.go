@@ -1,7 +1,7 @@
 package arpc
 
 import (
-	"github.com/jeckbjy/micro/anet"
+	"github.com/jeckbjy/gsk/anet"
 )
 
 func NewContext(conn anet.IConn, req IPacket, rsp IPacket) *Context {

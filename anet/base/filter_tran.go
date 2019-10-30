@@ -13,8 +13,10 @@ func (f *TransferFilter) Name() string {
 	return "transfer"
 }
 
-func (f *TransferFilter) HandleWrite(ctx anet.IFilterCtx) {
+func (f *TransferFilter) HandleWrite(ctx anet.FilterCtx) error {
 	if data, ok := ctx.Data().(*buffer.Buffer); ok {
 		_ = ctx.Conn().Write(data)
 	}
+
+	return nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-func NewConn(tran anet.ITran, client bool, tag string) *Conn {
+func NewConn(tran anet.Tran, client bool, tag string) *Conn {
 	conn := &Conn{tran: tran, client: client, tag: tag, status: anet.DISCONNECTED}
 	conn.rbuf = buffer.New()
 	conn.wbuf = buffer.New()
@@ -17,24 +17,44 @@ func NewConn(tran anet.ITran, client bool, tag string) *Conn {
 }
 
 type Conn struct {
-	tran    anet.ITran
+	tran    anet.Tran
 	client  bool
 	tag     string
-	sock    net.Conn
-	rbuf    *buffer.Buffer // 读缓存
-	wbuf    *buffer.Buffer // 写缓存
-	writing bool           // 写线程是否在执行中
-	mutex   sync.Mutex     // 锁
-	onClose func()         // 关闭时回调,用于自动断线重连
-	status  anet.Status
+	sock    net.Conn               // 原始socket
+	rbuf    *buffer.Buffer         // 读缓存
+	wbuf    *buffer.Buffer         // 写缓存
+	writing bool                   // 写线程是否在执行中
+	mutex   sync.Mutex             // 锁
+	onClose func()                 // 关闭时回调,用于自动断线重连
+	status  anet.Status            // 当前状态
+	data    map[string]interface{} // 自定义数据
 }
 
 func (c *Conn) SetCloseCallback(cb func()) {
 	c.onClose = cb
 }
 
-func (c *Conn) GetChain() anet.IFilterChain {
+func (c *Conn) GetChain() anet.FilterChain {
 	return c.tran.GetChain()
+}
+
+func (c *Conn) Tag() string {
+	return c.tag
+}
+
+func (c *Conn) Get(key string) interface{} {
+	if c.data != nil {
+		return c.data[key]
+	}
+
+	return nil
+}
+
+func (c *Conn) Set(key string, val interface{}) {
+	if c.data == nil {
+		c.data = make(map[string]interface{})
+	}
+	c.data[key] = val
 }
 
 func (c *Conn) Status() anet.Status {

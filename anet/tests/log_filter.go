@@ -16,14 +16,18 @@ func (f *LogFilter) Name() string {
 	return "LogFilter"
 }
 
-func (f *LogFilter) HandleRead(ctx anet.IFilterCtx) {
+func (f *LogFilter) HandleRead(ctx anet.FilterCtx) error {
 	if buff, ok := ctx.Data().(*buffer.Buffer); ok {
 		log.Printf("recv data:%+v", buff.Len())
 	}
+
+	return nil
 }
 
-func (f *LogFilter) HandleWrite(ctx anet.IFilterCtx) {
+func (f *LogFilter) HandleWrite(ctx anet.FilterCtx) error {
 	if buff, ok := ctx.Data().(*buffer.Buffer); ok {
 		log.Printf("send data:%+v", buff.Len())
 	}
+
+	return nil
 }

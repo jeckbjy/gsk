@@ -11,7 +11,7 @@ func init() {
 	anet.Add("tcp", New)
 }
 
-func New() anet.ITran {
+func New() anet.Tran {
 	return &Tran{}
 }
 
@@ -24,7 +24,7 @@ func (t *Tran) String() string {
 	return "tcp"
 }
 
-func (t *Tran) Listen(addr string, opts ...anet.ListenOption) (anet.IListener, error) {
+func (t *Tran) Listen(addr string, opts ...anet.ListenOption) (anet.Listener, error) {
 	conf := anet.ListenOptions{}
 	conf.Init(opts...)
 	return base.DoListen(&conf, t, func() (net.Listener, error) {
@@ -32,7 +32,7 @@ func (t *Tran) Listen(addr string, opts ...anet.ListenOption) (anet.IListener, e
 	})
 }
 
-func (t *Tran) Dial(addr string, opts ...anet.DialOption) (anet.IConn, error) {
+func (t *Tran) Dial(addr string, opts ...anet.DialOption) (anet.Conn, error) {
 	conf := &anet.DialOptions{}
 	conf.Init(opts...)
 	return base.DoDial(conf, t, func() (net.Conn, error) {

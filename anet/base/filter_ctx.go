@@ -10,13 +10,13 @@ import (
 var ErrIndexOverflow = errors.New("filter index overflow")
 
 // callback 用于Next等调用中，能执行对应的HandleRead，HandleWrite函数
-type callback func(filter anet.IFilter, ctx anet.IFilterCtx)
+type callback func(filter anet.Filter, ctx anet.FilterCtx) error
 
 // FilterCtx implement anet.FilterCtx
 type FilterCtx struct {
 	next    *FilterCtx // 用于pool中存储空闲链表
-	chain   anet.IFilterChain
-	conn    anet.IConn
+	chain   anet.FilterChain
+	conn    anet.Conn
 	data    interface{}
 	err     error
 	index   int
@@ -24,7 +24,7 @@ type FilterCtx struct {
 	cb      callback
 }
 
-func (ctx *FilterCtx) init(chain anet.IFilterChain, conn anet.IConn, forward bool, cb callback) {
+func (ctx *FilterCtx) init(chain anet.FilterChain, conn anet.Conn, forward bool, cb callback) {
 	ctx.chain = chain
 	ctx.conn = conn
 	ctx.data = nil
@@ -37,7 +37,7 @@ func (ctx *FilterCtx) init(chain anet.IFilterChain, conn anet.IConn, forward boo
 	}
 }
 
-func (ctx *FilterCtx) Conn() anet.IConn {
+func (ctx *FilterCtx) Conn() anet.Conn {
 	return ctx.conn
 }
 
@@ -61,11 +61,8 @@ func (ctx *FilterCtx) IsAbort() bool {
 	return ctx.index >= math.MaxInt32
 }
 
-func (ctx *FilterCtx) Abort(err error) {
+func (ctx *FilterCtx) Abort() {
 	ctx.index = math.MaxInt32
-	if err != nil {
-		ctx.chain.HandleError(ctx.conn, err)
-	}
 }
 
 // 调用callback
@@ -75,11 +72,17 @@ func (ctx *FilterCtx) call(index int) {
 	// 如果需要终止，需要主动调用Abort
 	if ctx.forward {
 		for idx := ctx.chain.Len(); ctx.index < idx; ctx.index++ {
-			ctx.cb(ctx.chain.Get(ctx.index), ctx)
+			if err := ctx.cb(ctx.chain.Get(ctx.index), ctx); err != nil {
+				ctx.Abort()
+				ctx.chain.HandleError(ctx.conn, err)
+			}
 		}
 	} else {
 		for ; ctx.index >= 0; ctx.index-- {
-			ctx.cb(ctx.chain.Get(ctx.index), ctx)
+			if err := ctx.cb(ctx.chain.Get(ctx.index), ctx); err != nil {
+				ctx.Abort()
+				ctx.chain.HandleError(ctx.conn, err)
+			}
 		}
 	}
 }
@@ -106,7 +109,7 @@ func (ctx *FilterCtx) JumpBy(name string) error {
 	return ctx.Jump(index)
 }
 
-func (ctx *FilterCtx) Clone() anet.IFilterCtx {
+func (ctx *FilterCtx) Clone() anet.FilterCtx {
 	nctx := ctxpool.New(ctx.chain, ctx.conn, ctx.forward, ctx.cb)
 	nctx.data = ctx.data
 	nctx.err = ctx.err

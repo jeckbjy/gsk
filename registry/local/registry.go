@@ -15,7 +15,7 @@ func init() {
 
 const serviceTarget = "_services"
 
-func New() registry.IRegistry {
+func New() registry.Registry {
 	return &localRegistry{opts: &registry.Options{}}
 }
 
@@ -176,7 +176,7 @@ func (r *localRegistry) List() ([]*registry.Service, error) {
 	return results, nil
 }
 
-func (r *localRegistry) Watch(opts ...registry.WatchOption) (registry.IWatcher, error) {
+func (r *localRegistry) Watch(opts ...registry.WatchOption) (registry.Watcher, error) {
 	o := registry.WatchOptions{}
 	o.Init(opts...)
 	w := &localWatcher{}

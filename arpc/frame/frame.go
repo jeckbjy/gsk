@@ -6,25 +6,21 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-// Default default frame codec
-var Default IFrame
-
 var ErrOverflow = errors.New("frame overflow")
 var ErrIncomplete = errors.New("frame data incomplete")
 
-var gFrameMap = make(map[string]IFrame)
+var gFrameMap = make(map[string]Frame)
 
-func Add(f IFrame) {
+func Add(f Frame) {
 	gFrameMap[f.Name()] = f
-	Default = f
 }
 
-func Get(name string) IFrame {
+func Get(name string) Frame {
 	return gFrameMap[name]
 }
 
-// IFrame 用于粘包处理
-type IFrame interface {
+// Frame 用于粘包处理
+type Frame interface {
 	Name() string
 	Encode(b *buffer.Buffer) error
 	Decode(b *buffer.Buffer) (*buffer.Buffer, error)

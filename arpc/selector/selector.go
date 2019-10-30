@@ -6,8 +6,8 @@ import (
 	"github.com/jeckbjy/gsk/registry"
 )
 
-// ISelector 筛选服务节点,同时也需要维护Conn缓存,因为外部没有办法知道节点的消失,主动删除Conn
-type ISelector interface {
+// Selector 筛选服务节点,同时也需要维护Conn缓存,因为外部没有办法知道节点的消失,主动删除Conn
+type Selector interface {
 	Options() Options
 	Init(opts ...Option) error
 	Select(service string, opts ...SelectOption) (Next, error)

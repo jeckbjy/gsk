@@ -15,7 +15,7 @@ type FilterCtxPool struct {
 	count int
 }
 
-func (p *FilterCtxPool) New(chain anet.IFilterChain, conn anet.IConn, forward bool, cb callback) *FilterCtx {
+func (p *FilterCtxPool) New(chain anet.FilterChain, conn anet.Conn, forward bool, cb callback) *FilterCtx {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 	var ctx *FilterCtx

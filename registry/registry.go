@@ -24,18 +24,18 @@ const (
 // Wildcard 表示查询所有版本
 const Wildcard = "*"
 
-var registryMap = make(map[string]IRegistry)
+var registryMap = make(map[string]Registry)
 
-func Add(r IRegistry) {
+func Add(r Registry) {
 	registryMap[r.String()] = r
 }
 
-func Get(name string) IRegistry {
+func Get(name string) Registry {
 	return registryMap[name]
 }
 
-// IRegistry 服务注册与发现
-type IRegistry interface {
+// Registry 服务注册与发现
+type Registry interface {
 	Init(...Option) error
 	Options() *Options
 	// 启动,某些库需要起一个定时器
@@ -52,14 +52,14 @@ type IRegistry interface {
 	// 罗列当前所有服务
 	List() ([]*Service, error)
 	// 创建一个Watcher,用于服务发现
-	Watch(...WatchOption) (IWatcher, error)
+	Watch(...WatchOption) (Watcher, error)
 	String() string
 }
 
 // Watcher is an interface that returns updates
 // about services within the registry.
 // IWatcher首次创建回自动请求一次已经注册过的服务,然后主动触发Next事件,不需要外部再单独调用一次Query
-type IWatcher interface {
+type Watcher interface {
 	// Add new service need watch
 	Observe(services ...string)
 	// Next is a blocking call

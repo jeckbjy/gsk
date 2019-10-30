@@ -7,3 +7,6 @@
 - 有些支持消息路由
 - 有些消息队列支持事务,但是大部分是不支持的
 - API设计上如何支持多个订阅?是需要每个订阅一个goroutine么
+
+
+https://www.alibabacloud.com/help/zh/doc-detail/29532.htm?spm=a2c63.p38356.b99.2.5b906513XS0aJR

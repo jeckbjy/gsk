@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/jeckbjy/gsk/frame"
+	"github.com/jeckbjy/gsk/arpc/frame"
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
@@ -13,7 +13,7 @@ func init() {
 	frame.Add(New())
 }
 
-func New() frame.IFrame {
+func New() frame.Frame {
 	return &Frame{}
 }
 

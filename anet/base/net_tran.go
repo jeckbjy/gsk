@@ -12,21 +12,21 @@ type DialCB func() (net.Conn, error)
 
 // base transport
 type Tran struct {
-	chain     anet.IFilterChain
+	chain     anet.FilterChain
 	listeners []net.Listener
 }
 
-func (t *Tran) GetChain() anet.IFilterChain {
+func (t *Tran) GetChain() anet.FilterChain {
 	return t.chain
 }
 
-func (t *Tran) SetChain(chain anet.IFilterChain) {
+func (t *Tran) SetChain(chain anet.FilterChain) {
 	if chain != nil {
 		t.chain = chain
 	}
 }
 
-func (t *Tran) AddFilters(filters ...anet.IFilter) {
+func (t *Tran) AddFilters(filters ...anet.Filter) {
 	if t.chain == nil {
 		t.chain = NewFilterChain()
 	}
@@ -45,14 +45,14 @@ func (t *Tran) Close() error {
 	return err
 }
 
-func DoOpen(c net.Conn, tran anet.ITran, client bool, tag string) *Conn {
+func DoOpen(c net.Conn, tran anet.Tran, client bool, tag string) *Conn {
 	conn := NewConn(tran, client, tag)
 	conn.Open(c)
 	return conn
 }
 
 // DoListen auxiliary function for listen
-func DoListen(conf *anet.ListenOptions, t anet.ITran, cb ListenCB) (anet.IListener, error) {
+func DoListen(conf *anet.ListenOptions, t anet.Tran, cb ListenCB) (anet.Listener, error) {
 	l, err := cb()
 	if err != nil {
 		return nil, err
@@ -73,10 +73,10 @@ func DoListen(conf *anet.ListenOptions, t anet.ITran, cb ListenCB) (anet.IListen
 }
 
 // DoDial auxiliary function for dial
-func DoDial(conf *anet.DialOptions, t anet.ITran, cb DialCB) (anet.IConn, error) {
+func DoDial(conf *anet.DialOptions, t anet.Tran, cb DialCB) (anet.Conn, error) {
 
 	if conf.Blocking {
-		var conn anet.IConn
+		var conn anet.Conn
 		c, err := cb()
 		if err == nil {
 			conn = DoOpen(c, t, true, conf.Tag)
@@ -108,7 +108,7 @@ func DoDial(conf *anet.DialOptions, t anet.ITran, cb DialCB) (anet.IConn, error)
 }
 
 // DoAsyncDial 尝试异步连接
-func DoAsyncDial(conn *Conn, conf *anet.DialOptions, cb DialCB) (anet.IConn, error) {
+func DoAsyncDial(conn *Conn, conf *anet.DialOptions, cb DialCB) (anet.Conn, error) {
 	go func() {
 		count := 0
 		for {

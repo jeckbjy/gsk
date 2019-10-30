@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,18 +11,13 @@ import (
 
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/anet/tcp"
-	"github.com/jeckbjy/gsk/util/log"
 )
 
 func TestNet(t *testing.T) {
 	startServer()
 	startClient()
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 1)
 	//waitExit()
-}
-
-type EchoMsg struct {
-	Text string
 }
 
 func startServer() {
@@ -58,5 +54,5 @@ func waitExit() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
-	log.Log("exit")
+	log.Printf("exit")
 }

@@ -17,25 +17,25 @@ func (f *FrameFilter) Name() string {
 	return "FrameFilter"
 }
 
-func (f *FrameFilter) HandleRead(ctx anet.IFilterCtx) {
+func (f *FrameFilter) HandleRead(ctx anet.FilterCtx) error {
 	buff, ok := ctx.Data().(*buffer.Buffer)
 	if !ok {
-		ctx.Abort(nil)
-		return
+		ctx.Abort()
+		return nil
 	}
 
-	buff.Seek(0, io.SeekStart)
+	_, _ = buff.Seek(0, io.SeekStart)
 	// frame 粘包处理,两个字节
 	var data [2]byte
 	if n, _ := buff.Read(data[:]); n != 2 {
-		ctx.Abort(nil)
-		return
+		ctx.Abort()
+		return nil
 	}
 
 	var length = binary.LittleEndian.Uint16(data[:])
 	if buff.Len()-buff.Pos() < int(length) {
-		ctx.Abort(nil)
-		return
+		ctx.Abort()
+		return nil
 	}
 
 	// 去除长度信息
@@ -44,12 +44,14 @@ func (f *FrameFilter) HandleRead(ctx anet.IFilterCtx) {
 
 	msgdata := buff.Split()
 	ctx.SetData(msgdata)
+	return nil
 }
 
-func (f *FrameFilter) HandleWrite(ctx anet.IFilterCtx) {
+func (f *FrameFilter) HandleWrite(ctx anet.FilterCtx) error {
 	buf := ctx.Data().(*buffer.Buffer)
 	len := buf.Len()
 	data := make([]byte, 2)
 	binary.LittleEndian.PutUint16(data, uint16(len))
 	buf.Prepend(data)
+	return nil
 }

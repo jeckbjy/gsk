@@ -7,7 +7,7 @@ import (
 )
 
 type Options struct {
-	Registry registry.IRegistry
+	Registry registry.Registry
 	Strategy Strategy
 
 	// Other options for implementations of the interface

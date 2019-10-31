@@ -2,7 +2,6 @@ package alog
 
 import (
 	"fmt"
-	"math"
 	"sync"
 	"time"
 )
@@ -11,6 +10,11 @@ const (
 	statusNone = 0
 	statusRun  = 1
 	statusStop = 2
+)
+
+const (
+	// 默认最大堆积消息数,超出则丢弃
+	DefaultMsgMax = 10000
 )
 
 func New() *Logger {
@@ -29,6 +33,7 @@ type Logger struct {
 	queue     Queue
 	max       int
 	level     Level
+	fields    map[string]string // 可以设置一些全局的数据,比如env,service,node等
 	formatter Formatter
 }
 
@@ -37,6 +42,18 @@ func (l *Logger) AddChannel(c Channel) {
 	defer l.mux.Unlock()
 	c.SetLogger(l)
 	l.channels = append(l.channels, c)
+}
+
+func (l *Logger) Level() Level {
+	return l.level
+}
+
+func (l *Logger) Formatter() Formatter {
+	return l.formatter
+}
+
+func (l *Logger) Max() int {
+	return l.max
 }
 
 func (l *Logger) SetLevel(lv Level) {
@@ -51,11 +68,30 @@ func (l *Logger) SetFormatter(f Formatter) {
 	l.formatter = f
 }
 
+func (l *Logger) AddField(key, value string) {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	if l.fields == nil {
+		l.fields = make(map[string]string)
+	}
+	l.fields[key] = value
+}
+
+func (l *Logger) GetField(key string) string {
+	if l.fields != nil {
+		if v, ok := l.fields[key]; ok {
+			return v
+		}
+	}
+
+	return ""
+}
+
 func (l *Logger) init() {
 	l.pool.New = func() interface{} {
 		return &Entry{}
 	}
-	l.max = math.MinInt32
+	l.max = DefaultMsgMax
 	l.level = LevelTrace
 	l.cond.Init()
 }
@@ -87,6 +123,13 @@ func (l *Logger) Run() {
 	if l.formatter == nil {
 		l.formatter, _ = NewTextFormatter("")
 	}
+
+	for _, c := range l.channels {
+		if err := c.Open(); err != nil {
+			fmt.Println(err)
+		}
+	}
+
 	l.mux.Unlock()
 
 	for {
@@ -124,6 +167,13 @@ func (l *Logger) Run() {
 			break
 		}
 	}
+	l.mux.Lock()
+	for _, c := range l.channels {
+		if err := c.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}
+	l.mux.Unlock()
 }
 
 func (l *Logger) WithFields(fields map[string]string) *Builder {
@@ -133,6 +183,12 @@ func (l *Logger) WithFields(fields map[string]string) *Builder {
 func (l *Logger) Push(e *Entry) {
 	needRun := false
 	l.cond.Lock()
+	// overflow
+	if l.queue.Len() > l.max {
+		l.cond.Unlock()
+		return
+	}
+
 	l.queue.Push(e)
 	if l.status == statusNone {
 		l.status = statusRun
@@ -154,6 +210,7 @@ func (l *Logger) Write(lv Level, fields map[string]string, skipFrames int, text 
 	e.Level = lv
 	e.Text = text
 	e.Fields = fields
+	e.logger = l
 	l.Push(e)
 }
 

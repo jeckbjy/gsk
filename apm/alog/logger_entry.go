@@ -10,6 +10,7 @@ import (
 
 type Entry struct {
 	*runtime.Frame
+	logger    *Logger
 	formatter Formatter
 	Time      time.Time
 	Level     Level
@@ -20,6 +21,7 @@ type Entry struct {
 	outputs   map[int][]byte
 }
 
+// 返回文件名,不包含名字
 func (e *Entry) FileName() string {
 	if e.filename == "" {
 		e.filename = filepath.Base(e.File)
@@ -28,17 +30,36 @@ func (e *Entry) FileName() string {
 	return e.filename
 }
 
-func (e *Entry) FileLine() string {
-	return fmt.Sprintf("%s:%d", e.FileName(), e.Line)
+func (e *Entry) Source(short bool) string {
+	if short {
+		return fmt.Sprintf("%s:%d", e.FileName(), e.Line)
+	} else {
+		return fmt.Sprintf("%s:%d", e.File, e.Line)
+	}
 }
 
-func (e *Entry) Method() string {
+// 调用方法名
+func (e *Entry) FuncName() string {
 	idx := strings.LastIndexByte(e.Function, '.')
 	if idx > 0 {
 		return e.Function[idx+1:]
 	}
 
 	return ""
+}
+
+func (e *Entry) FuncLine() string {
+	return fmt.Sprintf("%s:%d", e.FuncName(), e.Line)
+}
+
+func (e *Entry) GetField(key string) string {
+	if e.Fields != nil {
+		if v, ok := e.Fields[key]; ok {
+			return v
+		}
+	}
+
+	return e.logger.GetField(key)
 }
 
 func (e *Entry) Format(f Formatter) []byte {

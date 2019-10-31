@@ -19,6 +19,15 @@ const (
 
 type Level uint8
 
+func (l Level) Short() string {
+	switch l {
+	case LevelFatal:
+		return "Fat"
+	case LevelError:
+		return "Err"
+	}
+}
+
 func (l Level) String() string {
 	switch l {
 	case LevelFatal:
@@ -35,6 +44,8 @@ func (l Level) String() string {
 		return "Debug"
 	case LevelTrace:
 		return "Trace"
+	case LevelOff:
+		return "Off"
 	default:
 		return "Unknown"
 	}
@@ -56,6 +67,8 @@ func ParseLevel(value string) (Level, error) {
 		return LevelPrint, nil
 	case "trace":
 		return LevelTrace, nil
+	case "off":
+		return LevelOff, nil
 	default:
 		return LevelOff, fmt.Errorf("unknown level,%+v", value)
 	}

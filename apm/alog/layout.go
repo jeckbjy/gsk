@@ -17,29 +17,27 @@ func NewLayout(format string) (*Layout, error) {
 	return l, nil
 }
 
-/*
-解析规则:%{width}key[params],例如,%t,%2p,%c[yyyy-MM-ddTHH:mm:ss]
-%% - %
-%t - message text
-%p - message priority level(Fatal, Error...)
-%q - message priority level,abbreviated(F,E,W...)
-%f - short filename(logger.go)
-%F - full filename(alog/logger.go)
-%l - line(10)
-%L - full file and line(logger.go:10)
-%m - method name
-%[key]- property field
-standard datetime RFC3339 2006-01-02T15:04:05Z07:00
-%d - short date, 2009-06-15
-%D - long date, 2009-06-15T13:45:30
-%r - RFC1123 Mon, 02 Jan 2006 15:04:05 MST
-%R - RFC1123Z Mon, 02 Jan 2006 15:04:05 -0700
-%s - RFC3339 2006-01-02T15:04:05Z07:00
-custom datetime,d,h,H,m,M,s,t,y,:,/
-https://docs.microsoft.com/en-us/dotnet/standard/base-types/custom-date-and-time-format-strings
-%c[format]
-%[key]
-*/
+// 解析规则:%{width}key[params],例如,%t,%2p,%c[yyyy-MM-ddTHH:mm:ss]
+// %% %
+// %m log message
+// %L full log level,Info, Warn
+// %f function name e.g. model.Get
+// %F function name and line number e.g. model.Get:121
+// %s short file name and line number: d.go:23
+// %S full file name and line number: /a/b/c/d.go:23
+//
+// %t short time format e.g. "15:04:05"
+// %T long time format e.g. "15:04:05.999"
+// %d short date format e.g. "2006-01-02"
+// %D long date format e.g. "2006-01-02T15:04:05"
+// %r RFC1123  date format e.g. Mon, 02 Jan 2006 15:04:05 MST
+// %R RFC1123Z date format e.g. Mon, 02 Jan 2006 15:04:05 -0700
+// %o RFC3339  date format e.g. 2006-01-02T15:04:05Z07:00
+// %{x}[key] additional fields, e.g. %[env] means find field value by 'env' if exits
+// %c[format] custom datetime,d,h,H,m,M,s,t,y,:,/
+//
+// DateFormat: https://docs.microsoft.com/en-us/dotnet/standard/base-types/custom-date-and-time-format-strings
+
 type Layout struct {
 	format  string
 	actions []*_Action
@@ -139,22 +137,22 @@ func (l *Layout) Format(msg *Entry) string {
 		switch act.Key {
 		case '%':
 			lb.Put("%", "")
-		case 't':
+		case 'm': // message
 			lb.Put(msg.Text, act.Width)
-		case 'p':
+		case 'L': // level
 			lb.Put(msg.Level.String(), act.Width)
-		case 'q':
-			lb.Put(toUpper(msg.Level.String()['0']), "")
 		case 'f':
-			lb.Put(msg.FileName(), act.Width)
+			lb.Put(msg.FuncName(), act.Width)
 		case 'F':
-			lb.Put(msg.File, act.Width)
-		case 'l':
-			lb.Put(msg.Line, act.Width)
-		case 'L':
-			lb.Put(msg.FileLine(), act.Width)
-		case 'm':
-			lb.Put(msg.Method(), act.Width)
+			lb.Put(msg.FuncLine(), act.Width)
+		case 's':
+			lb.Put(msg.Source(true), act.Width)
+		case 'S':
+			lb.Put(msg.Source(false), act.Width)
+		case 't':
+			lb.Put(msg.Time.Format("15:04:05"), act.Width)
+		case 'T':
+			lb.Put(msg.Time.Format("15:04:05.000"), act.Width)
 		case 'd':
 			lb.Put(msg.Time.Format("2006-01-02"), act.Width)
 		case 'D':
@@ -163,7 +161,7 @@ func (l *Layout) Format(msg *Entry) string {
 			lb.Put(msg.Time.Format(time.RFC1123), act.Width)
 		case 'R':
 			lb.Put(msg.Time.Format(time.RFC1123Z), act.Width)
-		case 's':
+		case 'o':
 			lb.Put(msg.Time.Format(time.RFC3339), act.Width)
 		case 'c':
 			if text := l.formatDatetime(act, msg.Time); text != "" {
@@ -171,7 +169,7 @@ func (l *Layout) Format(msg *Entry) string {
 			}
 		case 'x':
 			if msg.Fields != nil && act.Param != "" {
-				if val, ok := msg.Fields[act.Param]; ok {
+				if val := msg.GetField(act.Param); val != "" {
 					lb.Put(val, act.Width)
 				}
 			}

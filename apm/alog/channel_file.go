@@ -19,20 +19,20 @@ func (c *FileChannel) Name() string {
 	return "file"
 }
 
-func (c *FileChannel) SetConfig(key string, value string) error {
+func (c *FileChannel) SetProperty(key string, value string) error {
+	switch key {
+	case "path":
+		if c.path != value {
+			c.path = value
+			_ = c.Close()
+		}
+	default:
+		return c.BaseChannel.SetProperty(key, value)
+	}
 	return nil
 }
 
-func (c *FileChannel) Write(l *Logger, msg *Entry) {
-	if c.Open() {
-		text := msg.Format(c.formatter)
-		if text != nil {
-			_, _ = c.file.Write(text)
-		}
-	}
-}
-
-func (c *FileChannel) Open() bool {
+func (c *FileChannel) Open() error {
 	if c.file == nil && c.err == nil {
 		if c.path == "" {
 			c.path = fmt.Sprintf("%s.log", filepath.Base(os.Args[0]))
@@ -42,7 +42,7 @@ func (c *FileChannel) Open() bool {
 		err := os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
 			c.err = err
-			return false
+			return err
 		}
 		c.file, err = os.OpenFile(c.path, os.O_RDWR|os.O_CREATE, os.ModePerm)
 		if err != nil {
@@ -51,5 +51,28 @@ func (c *FileChannel) Open() bool {
 		}
 	}
 
-	return c.file != nil
+	if c.file == nil {
+		return ErrNotReady
+	}
+
+	return nil
+}
+
+func (c *FileChannel) Close() error {
+	if c.file != nil {
+		err := c.file.Close()
+		c.file = nil
+		return err
+	}
+
+	return nil
+}
+
+func (c *FileChannel) Write(msg *Entry) {
+	if c.Open() == nil {
+		text := msg.Format(c.formatter)
+		if text != nil {
+			_, _ = c.file.Write(text)
+		}
+	}
 }

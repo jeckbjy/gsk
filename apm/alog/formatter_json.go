@@ -18,7 +18,7 @@ func NewJsonFormatter(layout string, indent string) (Formatter, error) {
 	return f, nil
 }
 
-// 格式配置,例如:time=%d text=%t level=%l
+// 格式配置,例如:time=%D message=%m level=%l
 type JsonFormatter struct {
 	Indent string
 	Layout string

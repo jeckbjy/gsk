@@ -35,11 +35,20 @@ func (c *BaseChannel) SetProperty(key string, value string) error {
 		}
 		c.level = level
 	case "formatter":
-
+	default:
+		return ErrNotSupport
 	}
 	return nil
 }
 
 func (c *BaseChannel) GetProperty(key string) string {
 	return ""
+}
+
+func (c *BaseChannel) Open() error {
+	return nil
+}
+
+func (c *BaseChannel) Close() error {
+	return nil
 }

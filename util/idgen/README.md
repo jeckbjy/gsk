@@ -15,5 +15,8 @@ shortid,生成的ID是字符串格式,无序并随机,不可以反解析,相比�
 [shortid](https://github.com/teris-io/shortid)
 [go-shortid](https://github.com/skahack/go-shortid)
 
+## [redeem]兑换码生成
+要求生成的兑换码随机，无序，不易猜测，易输入，可逆可验证，兑换码中通常会包含一个ID信息
+
 ## 其他算法
 - [luhn](https://www.geeksforgeeks.org/luhn-algorithm/) 模10校验算法

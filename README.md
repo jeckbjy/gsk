@@ -58,3 +58,4 @@ git clone https://github.com/golang/net.git
 ## 其他资料
 - [Functional Options Pattern in Go](https://halls-of-valhalla.org/beta/articles/functional-options-pattern-in-go,54/)
 - [Pattern](https://www.jianshu.com/p/5a3a09894bb5)
+- [GoPatterns](https://books.studygolang.com/go-patterns/)

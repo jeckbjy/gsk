@@ -1,4 +1,3 @@
-// time util
 package times
 
 import "time"

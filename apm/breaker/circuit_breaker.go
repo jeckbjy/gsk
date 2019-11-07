@@ -18,6 +18,7 @@ func newBreaker(cfg *Config) Breaker {
 //
 // https://github.com/Netflix/Hystrix/wiki/
 // https://github.com/openbilibili/go-common
+// https://zhuanlan.zhihu.com/p/58428026
 // https://blog.csdn.net/tongtong_use/article/details/78611225
 // https://segmentfault.com/a/1190000005988895
 // https://techblog.constantcontact.com/software-development/circuit-breakers-and-microservices/

@@ -1,44 +1,33 @@
 package lock
 
-import "time"
+import (
+	"time"
+)
 
-type Options struct {
-	Nodes  []string
-	Prefix string
+const (
+	DefaultTTL   = time.Minute
+	DefaultRetry = 1
+)
+
+type LockOptions struct {
+	TTL   time.Duration // 锁过期时间,必须要设置,0使用默认
+	Wait  time.Duration // 阻塞等待时间,默认为0不阻塞
+	Retry int           // 重试次数,总的等待时间为wait*retry
 }
 
-type AcquireOptions struct {
-	TTL  time.Duration
-	Wait time.Duration
-}
-
-type Option func(o *Options)
-type AcquireOption func(o *AcquireOptions)
-
-// Nodes sets the addresses the underlying lock implementation
-func Nodes(a ...string) Option {
-	return func(o *Options) {
-		o.Nodes = a
-	}
-}
-
-// Prefix sets a prefix to any lock ids used
-func Prefix(p string) Option {
-	return func(o *Options) {
-		o.Prefix = p
-	}
-}
+type LockOption func(o *LockOptions)
 
 // TTL sets the lock ttl
-func TTL(t time.Duration) AcquireOption {
-	return func(o *AcquireOptions) {
+func TTL(t time.Duration) LockOption {
+	return func(o *LockOptions) {
 		o.TTL = t
 	}
 }
 
 // Wait sets the wait time
-func Wait(t time.Duration) AcquireOption {
-	return func(o *AcquireOptions) {
+func Wait(t time.Duration, retry int) LockOption {
+	return func(o *LockOptions) {
 		o.Wait = t
+		o.Retry = retry
 	}
 }

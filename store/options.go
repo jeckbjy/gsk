@@ -1,24 +1,33 @@
 package store
 
-import "time"
-
-type WriteOptions struct {
-	IsDir bool
-	TTL   time.Duration
+type Options struct {
+	Prefix   bool  // Delete,Watch use
+	KeyOnly  bool  // Get,List
+	Revision int64 // Get,List
 }
 
-type ReadOptions struct {
-	// Consistent defines if the behavior of a Get operation is
-	// linearizable or not. Linearizability allows us to 'see'
-	// objects based on a real-time total order as opposed to
-	// an arbitrary order or with stale values ('inconsistent'
-	// scenario).
-	Consistent bool
+func (o *Options) Build(opts ...Option) {
+	for _, fn := range opts {
+		fn(o)
+	}
 }
 
-// LockOptions contains optional request parameters
-type LockOptions struct {
-	Value     []byte        // Optional, value to associate with the lock
-	TTL       time.Duration // Optional, expiration ttl associated with the lock
-	RenewLock chan struct{} // Optional, chan used to control and stop the session ttl renewal for the lock
+type Option func(*Options)
+
+func Prefix() Option {
+	return func(o *Options) {
+		o.Prefix = true
+	}
+}
+
+func KeyOnly() Option {
+	return func(o *Options) {
+		o.KeyOnly = true
+	}
+}
+
+func Revision(r int64) Option {
+	return func(o *Options) {
+		o.Revision = r
+	}
 }

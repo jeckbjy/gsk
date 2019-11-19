@@ -5,52 +5,111 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-// Packet 用于服务器间通信
-// ID:表示唯一数值型ID,Name表示消息唯一名字,用于标识消息类型,二选一,通常使用唯一ID
-// Service:RPC服务名,用于服务查询,Method:RPC方法名,用于通过函数名查询消息处理回调
-// SeqID:用于异步RPC全局唯一ID,通常用于查询异步处理回调函数
-// ID,Name,Method并不需要都存在,使用任意一个都可以查找到回调处理函数,但运行效率和注册方便程度上有所不同
-// ID的方式节省空间，速度快，但需要额外的注册
-// Name,Method的方式可以通过反射的方式，在注册消息处理的时候，自动解析出函数名和消息名
+type ContentType int
+
+const (
+	CTProtoBuf ContentType = iota
+	CTJson
+	CTXml
+	CTText
+)
+
+type CommandType int
+
+const (
+	CmdMsg CommandType = 0 // 正常消息通信
+)
+
+type HeadFlag uint
+
+const (
+	HFAck         HeadFlag = 0
+	HFStatus               = 1
+	HFContentType          = 2
+	HFCommand              = 3
+	HFSeqID                = 4
+	HFMsgID                = 5
+	HFName                 = 6
+	HFMethod               = 7
+	HFService              = 8
+	HFHeadMap              = 9
+	HFExtra                = 10
+	HFMax                  = 15
+)
+
+// 预定义extra枚举,外部可以自行定义
+const (
+	HFExtraTraceID   = 0
+	HFExtraSpanID    = 1
+	HFExtraRemoteIP  = 2
+	HFExtraUserID    = 3
+	HFExtraProjectID = 4
+)
+
+// 使用2个字节作为Flag标识,目前系统已经使用了9个,还剩7个可以自定义,取值范围[0-6]
+// 服务器集群内经常使用的有TraceID，SpanID,RemoteIP,UserID,ProjectID等
+// 客户端与服务器通信经常使用的有,Auth,Checksum
+const HFExtraMax = 6
+const HFExtraMask = ^uint16(1<<HFExtra - 1)
+
+// 私有通信协议
+// 编码格式:Flag[2byte]+Head+Body
+// Flag: 固定两个字节,每位标识对应的head是否有数据
+// Head:
+//	1:系统依赖必须的字段,类型固定:比如Ack,Status,ContentType,Command,SequenceID,ID,Name,Service,
+//	2:系统非必须但很常用,类型string:比如TraceID,SpanID,RemoteIP,UserID,Project,Auth,Checksum
+//  3:Key-Value类型Head:
+// Body:
+// 	需要根据ContentType进行编解码,需要根据MsgID等信息查询到具体类型,因此解码需要分成两个接口
+//  body需要是个指针类型
 //
-// 编码格式:消息长度+消息头(FLAG+DATA)+消息体
-//   已知常见的消息头通过枚举定义,其他自定义消息头以string编码保存在map中
+// Ack:是否是应答消息
+// Status类似http的错误码,0表示OK
+// ContentType使用枚举形式,默认protobuf和json
+// Command:系统内控制命令,通常为0,表示消息通信,其他可用于HealthCheck等系统内预定义的命令
+// SeqID:唯一序列号,用于RPC调用,全局唯一
+// MsgID:消息静态唯一ID,不超过65535
+// Name :消息名
+// Method:调用方法名
+// Service:服务类型,用于消息路由,也可以不使用此字段,而是自行根据消息ID分段或者自行编码
+// Extra: 扩展字段,使用者可自行定义含义, 使用int索引定位,不能超过7
+// Head:附加参数,kv结构,更加灵活,但是消耗也会更多,key要求不能含有|
 //
-// 还有一些常用的消息头,比如TraceID,SpanID,Auth,Token
-// 自定义数据需要 x-www-form-urlencoded？
+// RPC
 type Packet interface {
-	Reply() bool             // 标识是否是RPC应答请求
-	Status() uint            // 类似HTTP的状态码,正整数
-	ID() uint                // 消息ID,要求是正整数
-	Name() string            // 消息名
-	SeqID() string           // RPC全局SequenceID
-	Method() string          // RPC方法名
-	Service() string         // RPC服务名
-	Head() map[string]string // 其他消息头信息
-	Body() interface{}       // 解析后的消息体
-	Data() *buffer.Buffer    // 原始数据
-	Value(key string) string // 查询数据
-	Codec() codec.Codec      // 消息体编解码
-	// set操作
-	SetReply(bool)
-	SetStatus(uint)
-	SetID(uint)
-	SetName(string)
-	SetSeqID(string)
+	IsAck() bool
+	SetAck(ack bool)
+	Status() uint
+	SetStatus(status uint)
+	ContentType() ContentType
+	SetContentType(ct ContentType)
+	Command() CommandType
+	SetCommand(CommandType)
+	SeqID() string
+	SetSeqID(id string)
+	MsgID() uint16
+	SetMsgID(id uint16)
+	Name() string
+	SetName(name string)
+	Method() string
 	SetMethod(string)
-	SetService(string)
-	SetHead(map[string]string)
+	Service() string
+	SetService(service string)
+	Extra(key uint) string
+	SetExtra(key uint, value string) error
+	Head(key string) string
+	SetHead(key string, value string)
+	Body() interface{}
 	SetBody(interface{})
-	SetData(*buffer.Buffer)
-	SetValue(key string, value string)
+	Codec() codec.Codec
 	SetCodec(codec.Codec)
-
-	// 解析消息包体
-	Parse(msg interface{}) error
-
-	// 消息包头编解码
-	Encode(b *buffer.Buffer) error
-	Decode(b *buffer.Buffer) error
+	Buffer() *buffer.Buffer
+	SetBuffer(b *buffer.Buffer)
+	// 编解码接口
+	Encode() error
+	Decode() error
+	// 解析body
+	DecodeBody(msg interface{}) error
 }
 
 type NewPacket func() Packet

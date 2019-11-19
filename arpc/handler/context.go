@@ -7,7 +7,7 @@ import (
 	"github.com/jeckbjy/gsk/arpc"
 )
 
-func NewContext(conn anet.Conn, req arpc.Packet, rsp arpc.Packet) arpc.IContext {
+func NewContext(conn anet.Conn, req arpc.Packet, rsp arpc.Packet) arpc.Context {
 	return &Context{Context: context.Background(), conn: conn, req: req, rsp: rsp}
 }
 

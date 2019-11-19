@@ -45,7 +45,7 @@ func (w *Writer) Flush() {
 	}
 }
 
-func (w *Writer) PutVarintLen(i int) {
+func (w *Writer) PutLen(i int) {
 	w.PutUVarint64(uint64(i))
 }
 
@@ -87,9 +87,7 @@ func (w *Writer) PutByte(b byte) {
 	w.move(1)
 }
 
-/**
- * BigEndian
- */
+// BigEndian
 func (w *Writer) PutInt16BE(i int16) {
 	d := w.obtain(2)
 	binary.BigEndian.PutUint16(d, uint16(i))
@@ -126,10 +124,9 @@ func (w *Writer) PutUInt64BE(i uint64) {
 	w.move(8)
 }
 
-/**
- * LittleEndian
- */
-
+//
+// LittleEndian
+//
 func (w *Writer) PutInt16LE(i int16) {
 	d := w.obtain(2)
 	binary.LittleEndian.PutUint16(d, uint16(i))
@@ -166,14 +163,10 @@ func (w *Writer) PutUInt64LE(i uint64) {
 	w.move(8)
 }
 
-func (w *Writer) PutString(s string) {
-	w.PutBytes([]byte(s))
-}
-
-func (w *Writer) PutLenString(s string) bool {
+func (w *Writer) PutString(s string) bool {
 	if len(s) > 0 {
-		w.PutVarintLen(len(s))
-		w.PutString(s)
+		w.PutLen(len(s))
+		w.PutBytes([]byte(s))
 		return true
 	}
 

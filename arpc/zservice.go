@@ -3,22 +3,21 @@ package arpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/jeckbjy/gsk/arpc/selector"
-
 	"github.com/jeckbjy/gsk/anet"
+	"github.com/jeckbjy/gsk/arpc/selector"
 	"github.com/jeckbjy/gsk/registry"
 )
 
 var (
-	ErrTimeout    = errors.New("rpc timeout")
-	ErrNoHandler  = errors.New("no handler")
-	ErrNoNode     = errors.New("no node found")
-	ErrNoConn     = errors.New("no conn found")
-	ErrRetryStop  = errors.New("retry stop")
-	ErrNotSupport = errors.New("not support")
+	ErrTimeout        = errors.New("rpc timeout")
+	ErrNoHandler      = errors.New("no handler")
+	ErrInvalidHandler = errors.New("invalid handler")
+	ErrNoNode         = errors.New("no node found")
+	ErrNoConn         = errors.New("no conn found")
+	ErrRetryStop      = errors.New("retry stop")
+	ErrNotSupport     = errors.New("not support")
 )
 
 // 全双工的服务,包括服务器和客户端
@@ -26,7 +25,7 @@ type Service interface {
 	Server
 	Client
 	Options() *Options
-	Init(opts ...Option) error
+	Init(opts *Options) error
 }
 
 type Server interface {
@@ -38,7 +37,7 @@ type Server interface {
 }
 
 type Client interface {
-	Send(service string, msg interface{}) error
+	Send(service string, msg interface{}, opts ...CallOption) error
 	Call(service string, req interface{}, rsp interface{}, opts ...CallOption) error
 }
 
@@ -57,22 +56,15 @@ const (
 	DisableRegistry = 0x04
 )
 
-type Option func(*Options)
+type Option func(o *Options)
 type Options struct {
-	ServerOptions
-	ClientOptions
+	// common options
+	Context  context.Context
 	Flags    int
 	Tran     anet.Tran
 	Registry registry.Registry
-	Context  context.Context
 	Router   Router
-}
-
-func (o *Options) HasFlag(mask int) bool {
-	return (o.Flags & mask) == mask
-}
-
-type ServerOptions struct {
+	// server options
 	Name        string         // 服务名
 	Id          string         // 服务ID
 	Version     string         // 服务版本
@@ -82,18 +74,16 @@ type ServerOptions struct {
 	AfterStart  []func() error
 	BeforeStop  []func() error
 	AfterStop   []func() error
+	// client options
+	Selector   selector.Selector // client load balance
+	Services   []string          // 需要监听的服务
+	Proxy      string            // 代理服务名
+	PacketFunc NewPacket         // 创建Packet
 }
 
-func (o *ServerOptions) FullId() string {
-	return fmt.Sprintf("%s-%s", o.Name, o.Id)
-}
-
-type ClientOptions struct {
-	Selector  selector.Selector
-	RPCRouter RPCRouter // 用于注册RPC回调,通常不需要配置
-	Services  []string  // 需要监听的服务,更多配置?
-	Proxy     string    // 代理服务名
-}
+const (
+	DefaultCallTTL = time.Second
+)
 
 type CallOption func(o *CallOptions)
 type CallOptions struct {

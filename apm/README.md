@@ -25,6 +25,7 @@ Circuit Breakers Pattern
 
 ## 一些库
 - [gopsutil](https://github.com/shirou/gopsutil)
+- [ratelimit](https://github.com/uber-go/ratelimit/)
 
 ## 开源APM
 - https://blog.csdn.net/konglongaa/article/details/55807192
@@ -32,3 +33,4 @@ Circuit Breakers Pattern
 ## 其他一些资料
 - [CurrentMemory](https://golangcode.com/print-the-current-memory-usage/)
 - [monitoring](https://scene-si.org/2018/08/06/basic-monitoring-of-go-apps-with-the-runtime-package/)
+- [uber-go/ratelimit](https://www.cyhone.com/articles/analysis-of-uber-go-ratelimit/)

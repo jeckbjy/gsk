@@ -1,16 +1,16 @@
 package service
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/registry"
 	"github.com/jeckbjy/gsk/util/addr"
-
-	"github.com/jeckbjy/gsk/arpc"
 )
 
 type Server struct {
@@ -72,7 +72,7 @@ func (s *Server) Stop() error {
 	return gerr
 }
 
-func (s *Server) Wait() {
+func (s *Server) Wait() error {
 	o := s.opts
 
 	ch := make(chan os.Signal, 1)
@@ -87,6 +87,8 @@ func (s *Server) Wait() {
 		case <-ch:
 		}
 	}
+
+	return nil
 }
 
 func (s *Server) Run() error {
@@ -94,13 +96,13 @@ func (s *Server) Run() error {
 		return err
 	}
 
-	s.Wait()
+	_ = s.Wait()
 	return s.Stop()
 }
 
 func (s *Server) register() error {
 	o := s.opts
-	if o.HasFlag(arpc.DisableRegistry) {
+	if s.HasFlag(arpc.DisableRegistry) {
 		return nil
 	}
 
@@ -130,7 +132,7 @@ func (s *Server) register() error {
 	address = net.JoinHostPort(host, port)
 
 	node := &registry.Node{
-		Id:      o.FullId(),
+		Id:      s.FullId(),
 		Address: address,
 	}
 
@@ -148,10 +150,19 @@ func (s *Server) register() error {
 
 func (s *Server) deregister() {
 	o := s.opts
-	if !o.HasFlag(arpc.DisableRegistry) {
-		_ = o.Registry.Deregister(o.FullId())
+	if !s.HasFlag(arpc.DisableRegistry) {
+		_ = o.Registry.Deregister(s.FullId())
 		_ = o.Registry.Stop()
 	}
+}
+
+func (s *Server) HasFlag(mask int) bool {
+	return (s.opts.Flags & mask) == mask
+}
+
+func (s *Server) FullId() string {
+	o := s.opts
+	return fmt.Sprintf("%s-%s", o.Name, o.Id)
 }
 
 func callHooks(hooks []func() error) error {

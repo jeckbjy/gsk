@@ -8,7 +8,14 @@ import (
 )
 
 var (
-	ErrOverflow = errors.New("buffer overflow")
+	ErrOverflow     = errors.New("buffer overflow")
+	ErrNoEnoughData = errors.New("no enough data")
+)
+
+const (
+	SeekStart   = io.SeekStart
+	SeekCurrent = io.SeekCurrent
+	SeekEnd     = io.SeekEnd
 )
 
 // New 新建Buffer
@@ -108,16 +115,18 @@ func (b *Buffer) Prepend(data []byte) {
 
 // Peek 读取数据并填充到data中,并返回真实读取的个数
 func (b *Buffer) Peek(data []byte) (int, error) {
+	var err error
 	size := b.len - b.pos
 	if len(data) > size {
 		data = data[:size]
+		err = ErrNoEnoughData
 	}
 
 	b.check()
 	iter := bfiterator{}
 	iter.Read(b, data, false)
 
-	return len(data), nil
+	return len(data), err
 }
 
 // Read 读取数据并移动当前位置,实现io.Reader接口
@@ -126,16 +135,18 @@ func (b *Buffer) Read(data []byte) (int, error) {
 		return 0, io.EOF
 	}
 
+	var err error
 	size := b.len - b.pos
 	if len(data) > size {
 		data = data[:size]
+		err = ErrNoEnoughData
 	}
 
 	b.check()
 	iter := bfiterator{}
 	iter.Read(b, data, true)
 	b.pos += len(data)
-	return len(data), nil
+	return len(data), err
 }
 
 // Write 从当前位置写数据,数据溢出时会自动分配内存, 实现io.Writer接口
@@ -200,7 +211,7 @@ func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 		b.node = b.head
 		b.off = 0
 		iter := bfiterator{}
-		iter.Move(b, int(pos), true)
+		iter.Move(b, pos, true)
 	case io.SeekEnd:
 		b.node = b.tail
 		b.off = len(b.node.data)

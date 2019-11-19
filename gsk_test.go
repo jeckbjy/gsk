@@ -41,7 +41,7 @@ func TestARPC(t *testing.T) {
 	t.Log(rsp.Text)
 
 	// 异步调用
-	s.Call(name, &echoReq{Text: "ping async"}, func(rsp *echoRsp) {
+	_ = s.Call(name, &echoReq{Text: "ping async"}, func(rsp *echoRsp) {
 		t.Logf("reply:%s", rsp.Text)
 	})
 	t.Log("wait async reply")

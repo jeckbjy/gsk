@@ -4,13 +4,9 @@ import (
 	"github.com/jeckbjy/gsk/arpc"
 )
 
-func New(opts ...arpc.Option) (arpc.Service, error) {
-	o := &arpc.Options{}
-	s := &Service{opts: o}
-	s.Server.opts = o
-	s.Client.opts = o
-
-	if err := s.Init(opts...); err != nil {
+func New(opts *arpc.Options) (arpc.Service, error) {
+	s := &Service{}
+	if err := s.Init(opts); err != nil {
 		return nil, err
 	}
 
@@ -27,10 +23,9 @@ func (s *Service) Options() *arpc.Options {
 	return s.opts
 }
 
-func (s *Service) Init(opts ...arpc.Option) error {
-	for _, fn := range opts {
-		fn(s.opts)
-	}
-
+func (s *Service) Init(opts *arpc.Options) error {
+	s.opts = opts
+	s.Server.opts = opts
+	s.Client.opts = opts
 	return nil
 }

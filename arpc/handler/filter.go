@@ -22,7 +22,6 @@ type Filter struct {
 	frame      frame.Frame
 	codec      codec.Codec
 	router     arpc.Router
-	rpc        arpc.RPCRouter
 	creator    arpc.NewPacket
 	exec       exec.Executor
 	pool       sync.Pool
@@ -30,7 +29,7 @@ type Filter struct {
 }
 
 func (f *Filter) Name() string {
-	return "Handler"
+	return "handler"
 }
 
 func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
@@ -40,6 +39,7 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 		return nil
 	}
 
+	// parse frame
 	_, _ = buff.Seek(0, io.SeekStart)
 	data, err := f.frame.Decode(buff)
 	if err != nil {
@@ -49,68 +49,57 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 		return err
 	}
 
-	// parse request
+	// parse request packet
 	req := f.creator()
-	if err := req.Decode(data); err != nil {
+	req.SetBuffer(data)
+	req.SetCodec(f.codec)
+	if err := req.Decode(); err != nil {
 		return err
 	}
 
-	req.SetCodec(f.codec)
-
-	_, handler, err := f.findHandler(req)
+	handler, err := f.router.Find(req)
 	if err != nil {
 		return err
 	}
 
-	// create response
+	// create response packet
 	rsp := f.creator()
 	rsp.SetCodec(f.codec)
 
 	// create context
 	context := NewContext(ctx.Conn(), req, rsp)
-	task := f.pool.Get().(*Task)
-	task.Init(context, handler, f.middleware)
-
 	if f.exec != nil {
+		task := f.pool.Get().(*Task)
+		task.Init(context, handler, f.middleware)
 		if err := f.exec.Handle(task); err != nil {
 			return err
 		}
 	} else {
-		if err := task.Run(); err != nil {
+		if err := invoke(context, handler, f.middleware); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// 查询处理函数
-func (f *Filter) findHandler(req arpc.Packet) (bool, arpc.Handler, error) {
-	if req.Reply() && req.SeqID() != "" {
-		h, err := f.rpc.Find(req.SeqID())
-		return true, h, err
-	} else {
-		h, err := f.router.Find(req)
-		return false, h, err
-	}
-}
-
 func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 	data := ctx.Data()
-	// 如果data是buffer类型,则说明外部完全托管了消息序列化
-	// 对于消息广播的情况:可以外边序列化好,将Buffer保存在Body中
-	// Packet:消息头每次都要单独序列化，因为每个人的消息头大概率都是不一样的
-	pkg, ok := data.(arpc.Packet)
-	if !ok {
+	var buff *buffer.Buffer
+	switch v := data.(type) {
+	case *buffer.Buffer:
+		// 外部已经系列化好了,比如广播消息,发送效率更高
+		buff = v
+	case arpc.Packet:
+		// 消息包,序列化数据到新buffer中
+		buff := buffer.New()
+		v.SetCodec(f.codec)
+		v.SetBuffer(buff)
+		if err := v.Encode(); err != nil {
+			return err
+		}
+	default:
 		ctx.Next()
 		return nil
-	}
-
-	pkg.SetCodec(f.codec)
-
-	buff := buffer.New()
-
-	if err := pkg.Encode(buff); err != nil {
-		return err
 	}
 
 	// 写入Frame

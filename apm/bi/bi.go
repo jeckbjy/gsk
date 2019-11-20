@@ -12,16 +12,20 @@ var (
 	ErrBadEvent   = errors.New("bad event")
 )
 
-// global reporter
-var gReporter Reporter
+// global client
+var gClient Client
 
 // 初始化数据
 func Init(opts *Options) error {
-	return gReporter.Init(opts)
+	return gClient.Init(opts)
+}
+
+func Stop() {
+	gClient.Stop()
 }
 
 func Send(event string, params M) error {
-	return gReporter.Send(event, params)
+	return gClient.Send(event, params)
 }
 
 // 通过反射类发送
@@ -31,5 +35,5 @@ func Sendx(s interface{}) error {
 		return err
 	}
 
-	return gReporter.Send(event, params)
+	return gClient.Send(event, params)
 }

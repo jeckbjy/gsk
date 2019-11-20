@@ -1,34 +1,45 @@
 package bi
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestSend(t *testing.T) {
-	if err := Init(&Options{URL: ""}); err != nil {
+	url := "https://use-your-test-url"
+	if err := Init(&Options{URL: url, Wait: time.Second * 10}); err != nil {
 		t.Fatal(err)
 	}
 
-	err := Send("", M{"key": "aa"})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestReflect(t *testing.T) {
-	type FooFFxx struct {
-		Name  string `bi:"name"`
-		Value int
-	}
-
-	tt := &FooFFxx{Name: "test", Value: 1}
-
-	event, params, err := Reflect(tt)
+	err := Send("login", M{"device_id": "test"})
 	if err != nil {
 		t.Fatal(err)
 	} else {
-		t.Log(event, params)
+		t.Log("send")
 	}
 
-	t2 := FooFFxx{Name: "tt", Value: 2}
-	e2, p2, _ := Reflect(t2)
+	Stop()
+}
+
+func TestReflect(t *testing.T) {
+	type Login struct {
+		ElapsedSecs int
+		Result      int
+		RetryTimes  int
+		Url         string
+	}
+
+	b1 := &Login{ElapsedSecs: 1, Result: 1, RetryTimes: 0, Url: "https://test"}
+	event, params, _ := Reflect(b1)
+	t.Log(event, params)
+
+	type MemberCard struct {
+		Reason        string
+		Step          int
+		TransactionId string
+	}
+
+	b2 := &MemberCard{Reason: "popup", Step: 1, TransactionId: "test-id"}
+	e2, p2, _ := Reflect(b2)
 	t.Log(e2, p2)
 }

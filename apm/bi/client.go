@@ -16,6 +16,7 @@ const (
 const (
 	defaultMax   = 100000
 	defaultBatch = 100
+	defaultRetry = 10
 	defaultWait  = time.Minute * 10
 )
 
@@ -24,6 +25,7 @@ type Options struct {
 	Tran   Transport     // 默认http
 	URL    string        // 发送地址
 	Batch  int           // 批量发送大小
+	Retry  int           // 尝试重发次数
 	Max    int           // 最大缓存数,超出则丢弃
 	Wait   time.Duration // 最大等待时间,超过此时间,则强制退出
 	Encode Encode        // 编码器
@@ -47,30 +49,45 @@ type Transport interface {
 	Send(opts *Options, events []byte) error
 }
 
-// BI统计信息
-// 每条BI数据要求有一个全局唯一ID可用于排重
-// 要有一个唯一事件ID,用于区分参数含义
-// 时间戳,标识发送时间
-// 任意kv参数
+type Stat struct {
+	Success int   // 成功次数
+	Fail    int   // 失败次数
+	Err     error // 最后一次错误
+}
+
+// BI统计
+// 一:需要统计的数据
+// 全局ID:可用于重发排重
+// 事件ID:用于区分参数含义
+// 时间戳:标识发送时间
+// 参数:  任意kv结构
 //
-// message不需要发送有序,因为ID自增有序,且有时间戳
-// bi数据比较重要,需要失败重传,需要能缓存一定数量数据,可Batch发送
+// 二:支持的特性
+// 1.异步发送
+// 2.缓存一定数量,超过则会丢失
+// 3.可批量发送
+// 4.json编码
+// 5.默认http发送,可扩展
 //
-// 默认只实现了http协议,效率可能没有那么高
-// 为了避免消息积压以及稳定,可以考虑使用MQ
-type Reporter struct {
+// 三:一些注意
+// 1.虽然会缓存数据,但是超过上限后依然会丢弃数据,防止占用内存过大导致宕机
+// 2.默认实现了http协议,效率可能没有那么高,可考虑使用MQ
+type Client struct {
 	queue   Queue
 	mux     sync.Mutex
 	cond    *sync.Cond
 	opts    *Options
 	status  int
 	expired time.Time // 超时则强制退出
-	success int       // 统计成功发送次数
-	fail    int       // 统计失败发送次数
+	stat    Stat      // 统计数据
 	exit    chan bool
 }
 
-func (r *Reporter) Init(opts *Options) error {
+func (r *Client) Stat() Stat {
+	return r.stat
+}
+
+func (r *Client) Init(opts *Options) error {
 	if opts.Tran == nil && opts.URL == "" {
 		return ErrBadOption
 	}
@@ -91,32 +108,38 @@ func (r *Reporter) Init(opts *Options) error {
 	if opts.Wait == 0 {
 		opts.Wait = defaultWait
 	}
+	if opts.Retry == 0 {
+		opts.Retry = defaultRetry
+	}
 	if r.status != statusNone {
 		return ErrHasInit
 	}
 
 	r.mux.Lock()
+	r.cond = sync.NewCond(&r.mux)
 	r.opts = opts
 	r.status = statusRun
+	r.exit = make(chan bool)
 	r.mux.Unlock()
 	go r.run()
 	return nil
 }
 
-func (r *Reporter) Stop() {
+func (r *Client) Stop() {
 	r.mux.Lock()
 	if r.status != statusRun {
 		r.mux.Unlock()
 		return
 	}
 	r.status = statusStop
+	r.expired = time.Now().Add(r.opts.Wait)
 	r.mux.Unlock()
 	r.cond.Signal()
 	// wait for exit
 	<-r.exit
 }
 
-func (r *Reporter) Send(event string, params M) error {
+func (r *Client) Send(event string, params M) error {
 	r.mux.Lock()
 	if r.opts.Tran == nil {
 		r.mux.Unlock()
@@ -142,7 +165,7 @@ func (r *Reporter) Send(event string, params M) error {
 	return nil
 }
 
-func (r *Reporter) run() {
+func (r *Client) run() {
 	records := make([]*Message, r.opts.Batch)
 	for {
 		r.mux.Lock()
@@ -150,9 +173,12 @@ func (r *Reporter) run() {
 			r.cond.Wait()
 		}
 		batch := r.queue.Pop(records)
-		quit := r.canQuit()
+		quit := r.canQuit() || r.queue.Empty()
 		r.mux.Unlock()
-		r.doSend(batch)
+		if len(batch) > 0 {
+			quit = r.doSend(batch)
+		}
+
 		if quit {
 			break
 		}
@@ -161,41 +187,43 @@ func (r *Reporter) run() {
 	r.exit <- true
 }
 
-func (r *Reporter) doSend(batch []*Message) {
-	if len(batch) == 0 {
-		return
-	}
-
+func (r *Client) doSend(batch []*Message) bool {
 	tran := r.opts.Tran
 	data := r.opts.Encode(batch)
+	retry := r.opts.Retry
 	// 一直尝试发送
+	count := 0
 	for {
-		if tran.Send(r.opts, data) == nil {
+		if err := tran.Send(r.opts, data); err == nil {
 			// 成功
-			r.success++
+			r.stat.Success++
 			break
 		} else {
-			r.fail++
+			count++
+			r.stat.Fail++
+			r.stat.Err = err
 		}
-		r.mux.Lock()
-		quit := r.canQuit()
-		r.mux.Unlock()
-		if quit {
-			break
+
+		if count >= retry {
+			// 判断是否需要退出
+			r.mux.Lock()
+			quit := r.canQuit()
+			r.mux.Unlock()
+			if quit {
+				return true
+			}
 		}
 	}
+
+	return false
 }
 
-func (r *Reporter) canQuit() bool {
+func (r *Client) canQuit() bool {
 	if r.status == statusRun {
 		return false
 	}
 
-	if r.queue.Empty() {
-		return true
-	}
-
-	if r.success == 0 {
+	if r.stat.Success == 0 {
 		return true
 	}
 

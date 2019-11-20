@@ -26,6 +26,7 @@ func toMap(m *Message) M {
 	if m.Params == nil {
 		m.Params = make(M)
 	}
+
 	m.Params["bi_id"] = m.ID
 	m.Params["bi_event"] = m.Event
 	m.Params["bi_timestamp"] = m.Time.UnixNano() / int64(time.Millisecond)
@@ -54,6 +55,7 @@ func toSnake(s string) string {
 	return b.String()
 }
 
+// 默认key使用小写snake形式输出
 // 通过反射获取要发送的内容
 func Reflect(s interface{}) (string, M, error) {
 	v := reflect.ValueOf(s)

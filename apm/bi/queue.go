@@ -28,33 +28,31 @@ func (q *Queue) Push(m *Message) {
 
 // 返回N个数据
 func (q *Queue) Pop(records []*Message) []*Message {
-	n := q.head
-	i := 0
-	if n != nil {
-		for ; i < len(records); i++ {
-			records[i] = n
-			n = n.next
-			records[i].next = nil
-			if n == nil {
-				break
-			}
-		}
-		if n == nil {
-			q.len = 0
-			q.head = nil
-			q.tail = nil
-		} else {
-			q.len -= i
-			q.head = n
-		}
+	if q.head == nil {
+		return nil
 	}
 
-	switch i {
-	case 0:
-		return nil
-	case len(records):
+	node := q.head
+	idx := 0
+	for ; idx < len(records) && node != nil; idx++ {
+		tmp := node
+		node = node.next
+		tmp.next = nil
+		records[idx] = tmp
+	}
+
+	if node == nil {
+		q.len = 0
+		q.head = nil
+		q.tail = nil
+	} else {
+		q.len -= idx
+		q.head = node
+	}
+
+	if idx == len(records) {
 		return records
-	default:
-		return records[:i]
+	} else {
+		return records[:idx]
 	}
 }

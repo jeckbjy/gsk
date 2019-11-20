@@ -74,8 +74,6 @@ const HFExtraMask = ^uint16(1<<HFExtra - 1)
 // Service:服务类型,用于消息路由,也可以不使用此字段,而是自行根据消息ID分段或者自行编码
 // Extra: 扩展字段,使用者可自行定义含义, 使用int索引定位,不能超过7
 // Head:附加参数,kv结构,更加灵活,但是消耗也会更多,key要求不能含有|
-//
-// RPC
 type Packet interface {
 	IsAck() bool
 	SetAck(ack bool)

@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	ErrInvalidSeqID    = errors.New("invalid sequence id")
 	ErrInvalidResponse = errors.New("invalid response")
 	ErrInvalidFuture   = errors.New("invalid future")
 	ErrInvalidHandler  = errors.New("invalid handler")

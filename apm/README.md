@@ -1,5 +1,5 @@
 # apm(Application Performance Management)
-用于服务器调试,bug追踪等服务质量监控,log,metrics,tracing,breaker,panic
+用于服务器调试,bug追踪等服务质量监控,log,metrics,tracing,breaker,bi,alert
 
 ## alog 异步日志输出
 - 异步操作
@@ -18,14 +18,14 @@ https://github.com/rcrowley/go-metrics
 https://github.com/DataDog/dd-trace-go/blob/v1/ddtrace/opentracer/span.go    
 https://github.com/jaegertracing/jaeger-client-go  
 
-## panics 异常拦截并上报
-
 ## breaker 熔断器
 Circuit Breakers Pattern
 
 ## 一些库
 - [gopsutil](https://github.com/shirou/gopsutil)
 - [ratelimit](https://github.com/uber-go/ratelimit/)
+- [gomail](https://github.com/go-gomail/gomail)
+- [SendingMail](https://github.com/golang/go/wiki/SendingMail)
 
 ## 开源APM
 - https://blog.csdn.net/konglongaa/article/details/55807192

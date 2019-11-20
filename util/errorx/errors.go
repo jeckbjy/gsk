@@ -1,6 +1,14 @@
 package errorx
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
+
+var (
+	ErrNotSupport = errors.New("not support")
+	ErrNoConfig   = errors.New("no config")
+)
 
 const (
 	System = iota

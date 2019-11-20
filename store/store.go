@@ -5,7 +5,10 @@ import (
 	"errors"
 )
 
-var ErrNotSupport = errors.New("not support")
+var (
+	ErrNotSupport = errors.New("not support")
+	ErrNotFound   = errors.New("not found")
+)
 
 // Store kv storage
 // 主要用途:配置文件管理
@@ -20,11 +23,14 @@ var ErrNotSupport = errors.New("not support")
 // Delete: 通过Key删除数据,如果有额外参数Prefix,则表示前缀匹配所有
 // Exists: 通过key判断是否存在
 // Watch:  监听key变化,如果有额外参数Prefix,则表示前缀匹配(监听目录)
+// 注意:
+// Get或者List查找不到数据时,会返回ErrNotFound错误
 //
 // https://github.com/abronan/valkeyrie
 // https://etcd.io/
 // https://www.consul.io/docs/agent/kv.html
 type Store interface {
+	Name() string
 	List(ctx context.Context, key string, opts ...Option) ([]*KV, error)
 	Get(ctx context.Context, key string, opts ...Option) (*KV, error)
 	Put(ctx context.Context, key string, value []byte) error

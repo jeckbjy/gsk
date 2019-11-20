@@ -1,5 +1,6 @@
 package store
 
+type Option func(*Options)
 type Options struct {
 	Prefix   bool  // Delete,Watch use
 	KeyOnly  bool  // Get,List
@@ -11,8 +12,6 @@ func (o *Options) Build(opts ...Option) {
 		fn(o)
 	}
 }
-
-type Option func(*Options)
 
 func Prefix() Option {
 	return func(o *Options) {

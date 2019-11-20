@@ -38,6 +38,10 @@ func (f *fileStore) normalize(key string) string {
 	}
 }
 
+func (f *fileStore) Name() string {
+	return "file"
+}
+
 func (f *fileStore) List(ctx context.Context, key string, opts ...store.Option) ([]*store.KV, error) {
 	o := store.Options{}
 	o.Build(opts...)
@@ -51,7 +55,7 @@ func (f *fileStore) List(ctx context.Context, key string, opts ...store.Option) 
 	s, err := os.Stat(name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, store.ErrNotFound
 		}
 
 		return nil, err
@@ -107,6 +111,10 @@ func (f *fileStore) List(ctx context.Context, key string, opts ...store.Option) 
 		}
 	}
 
+	if len(results) == 0 {
+		return nil, store.ErrNotFound
+	}
+
 	return results, nil
 }
 
@@ -118,14 +126,14 @@ func (f *fileStore) Get(ctx context.Context, key string, opts ...store.Option) (
 	s, err := os.Stat(name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, store.ErrNotFound
 		}
 
 		return nil, err
 	}
 
 	if s.IsDir() {
-		return nil, nil
+		return nil, store.ErrNotFound
 	}
 	if o.KeyOnly {
 		return &store.KV{Key: key}, nil

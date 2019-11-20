@@ -1,19 +1,10 @@
 package file
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jeckbjy/gsk/store"
 )
-
-func TestWalk(t *testing.T) {
-	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		t.Log(path)
-		return nil
-	})
-}
 
 func TestFileStore(t *testing.T) {
 	s := New()
@@ -31,7 +22,7 @@ func TestFileStore(t *testing.T) {
 	}
 
 	kv, err := s.Get(nil, key)
-	if err != nil {
+	if err != nil && err != store.ErrNotFound {
 		t.Fatal(err)
 	}
 
@@ -57,7 +48,7 @@ func TestFileStore(t *testing.T) {
 
 	t.Log("list all-------")
 	files, err := s.List(nil, "", store.KeyOnly())
-	if err != nil {
+	if err != nil && err != store.ErrNotFound {
 		t.Fatal(err)
 	}
 

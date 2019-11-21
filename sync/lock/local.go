@@ -44,11 +44,13 @@ func (l *localLocker) Lock() error {
 		timeout = l.opts.Timeout
 	}
 
-	if timeout == TimeoutMax {
-		// 直到获取到锁
+	switch timeout {
+	case 0:
+		return ErrNotLock
+	case TimeoutMax:
 		mux.Lock()
 		return nil
-	} else {
+	default:
 		// 轮询检测是否获得到锁,直到过期
 		expired := time.Now().Add(timeout)
 		for {

@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-var ErrNotAcquire = errors.New("not acquire locker")
+var ErrNotLock = errors.New("not lock")
 
 var locking atomic.Value
 
@@ -29,10 +29,11 @@ func SetDefault(l Locking) {
 // github.com/go-redsync/redsync
 type Locking interface {
 	Name() string
-	Lock(key string, opts *LockOptions) (Unlocker, error)
+	Acquire(key string, opts *LockOptions) (Locker, error)
 }
 
-type Unlocker interface {
+type Locker interface {
+	Lock() error
 	Unlock()
 }
 
@@ -42,7 +43,7 @@ type Unlocker interface {
 //   return
 // }
 // defer l.Unlock()
-func Lock(key string, opts ...LockOption) (Unlocker, error) {
+func Lock(key string, opts ...LockOption) (Locker, error) {
 	o := LockOptions{}
 	for _, fn := range opts {
 		fn(&o)
@@ -52,5 +53,12 @@ func Lock(key string, opts ...LockOption) (Unlocker, error) {
 		o.TTL = DefaultTTL
 	}
 
-	return GetDefault().Lock(key, &o)
+	l, err := GetDefault().Acquire(key, &o)
+	if err != nil {
+		return nil, err
+	}
+	if err := l.Lock(); err != nil {
+		return nil, err
+	}
+	return l, nil
 }

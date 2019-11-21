@@ -192,3 +192,7 @@ func (f *fileStore) Watch(ctx context.Context, key string, cb store.Callback, op
 	// TODO: implement me
 	return store.ErrNotSupport
 }
+
+func (f *fileStore) Close() error {
+	return nil
+}

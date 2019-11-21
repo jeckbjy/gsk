@@ -37,6 +37,7 @@ type Store interface {
 	Delete(ctx context.Context, key string, opts ...Option) error
 	Exists(ctx context.Context, key string) (bool, error)
 	Watch(ctx context.Context, key string, cb Callback, opts ...Option) error
+	Close() error
 }
 
 type EventType int

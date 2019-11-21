@@ -12,7 +12,7 @@ func TestLock(t *testing.T) {
 }
 
 func Foo(t *testing.T, index int) {
-	l, err := Lock("test_key", Wait(time.Millisecond*500, 1))
+	l, err := Lock("test_key", Timeout(time.Millisecond*500))
 	// not acquire locker
 	if err != nil {
 		t.Log(err, index)

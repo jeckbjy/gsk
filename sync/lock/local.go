@@ -22,7 +22,7 @@ func (l *localLocking) Name() string {
 	return "local"
 }
 
-func (l *localLocking) Acquire(key string, opts *LockOptions) (Locker, error) {
+func (l *localLocking) Acquire(key string, opts *Options) (Locker, error) {
 	locker := &localLocker{owner: l, key: key, opts: opts}
 	return locker, nil
 }
@@ -30,25 +30,37 @@ func (l *localLocking) Acquire(key string, opts *LockOptions) (Locker, error) {
 type localLocker struct {
 	owner *localLocking
 	key   string
-	opts  *LockOptions
+	opts  *Options
 }
 
 func (l *localLocker) Lock() error {
-	if l.tryLock() {
+	mux, locked := l.tryLock()
+	if locked {
 		return nil
 	}
 
-	opts := l.opts
-	if opts != nil && opts.Wait > 0 {
-		for retry := opts.Retry; retry > 0; retry-- {
-			time.Sleep(opts.Wait)
-			if l.tryLock() {
+	timeout := time.Duration(0)
+	if l.opts != nil {
+		timeout = l.opts.Timeout
+	}
+
+	if timeout == TimeoutMax {
+		// 直到获取到锁
+		mux.Lock()
+		return nil
+	} else {
+		// 轮询检测是否获得到锁,直到过期
+		expired := time.Now().Add(timeout)
+		for {
+			time.Sleep(time.Millisecond)
+			if _, locked := l.tryLock(); locked {
 				return nil
+			}
+			if time.Now().After(expired) {
+				return ErrNotLock
 			}
 		}
 	}
-
-	return ErrNotLock
 }
 
 func (l *localLocker) Unlock() {
@@ -61,7 +73,7 @@ func (l *localLocker) Unlock() {
 	p.mux.Unlock()
 }
 
-func (l *localLocker) tryLock() bool {
+func (l *localLocker) tryLock() (*sync.Mutex, bool) {
 	p := l.owner
 	p.mux.Lock()
 	mux, ok := p.locks[l.key]
@@ -71,7 +83,7 @@ func (l *localLocker) tryLock() bool {
 	}
 	locked := tryLock(mux)
 	p.mux.Unlock()
-	return locked
+	return mux, locked
 }
 
 const mutexLocked = 1

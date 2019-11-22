@@ -91,20 +91,20 @@ func (c *Client) sendMsg(next selector.Next, pkg arpc.Packet) error {
 }
 
 func (c *Client) getConn(next selector.Next) (anet.Conn, error) {
-	node, err := next()
-	if err != nil {
-		return nil, err
-	}
-
-	if node.Conn() == nil {
-		if conn, err := c.opts.Tran.Dial(node.Address); err != nil {
-			return nil, err
-		} else {
-			node.SetConn(conn)
-		}
-	}
-
-	return node.Conn().(anet.Conn), nil
+	//node, err := next()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//if node.Conn() == nil {
+	//	if conn, err := c.opts.Tran.Dial(node.Address); err != nil {
+	//		return nil, err
+	//	} else {
+	//		node.SetConn(conn)
+	//	}
+	//}
+	//
+	//return node.Conn().(anet.Conn), nil
 }
 
 func (c *Client) getNext(service string) (selector.Next, error) {

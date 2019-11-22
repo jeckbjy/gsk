@@ -6,14 +6,10 @@ import (
 )
 
 var (
-	ErrNotSupport = errors.New("not support")
-	ErrNoConfig   = errors.New("no config")
-)
-
-const (
-	System = iota
-	DB
-	Logic
+	ErrNotSupport   = errors.New("not support")
+	ErrNotFound     = errors.New("not found")
+	ErrNotAvailable = errors.New("not available")
+	ErrNoConfig     = errors.New("no config")
 )
 
 // 扩展error接口,方便外部使用

@@ -1,70 +1,40 @@
 package local
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/jeckbjy/gsk/registry"
+
 	"github.com/jeckbjy/gsk/util/ssdp"
 )
 
 func TestRegister(t *testing.T) {
 	ssdp.Logger = log.New(os.Stderr, "[SSDP] ", log.LstdFlags)
-
-	// start registry
 	t.Log("start register")
-
-	r := &localRegistry{}
-	_ = r.Init()
-	r.Start()
-	node := &registry.Node{Id: "aaa", Address: "127.0.0.1:9999"}
-	s := &registry.Service{Name: "test", Nodes: []*registry.Node{node}}
-	_ = r.Register(s)
-
-	t.Log("start watch")
-	w, err := r.Watch(registry.WithWatchServices("test"))
+	r := New(nil)
+	err := r.Register(registry.NewService("test", "aaa", "127.0.0.1:9999", nil))
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
-
-	// start watch
-	go func() {
-		for {
-			r, err := w.Next()
-			if err != nil {
-				break
-			}
-			switch r.Action {
-			case registry.ActionCreate:
-				t.Logf("new service:%+v", r.Service.Nodes[0].Id)
-			case registry.ActionDelete:
-				t.Logf("del service:%+v", r.Service.Nodes[0].Id)
-			}
-		}
-		t.Logf("watch quit")
-	}()
-
-	time.Sleep(time.Second)
-	// add another node
-	n1 := &registry.Node{Id: "bbb", Address: "127.0.0.1:9999"}
-	s1 := &registry.Service{Name: "test", Nodes: []*registry.Node{n1}}
-	r.Register(s1)
-
+	t.Log("start watch")
+	if err := r.Watch([]string{"test"}, func(ev *registry.Event) {
+		t.Logf("new event,%+v,%+v,%+v", ev.Type, ev.Id, ev.Service)
+	}); err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(time.Second)
 
-	// del service
-	r.Deregister("aaa")
-	r.Deregister("bbb")
-
+	// add another
+	_ = r.Register(registry.NewService("test", "bbb", "127.0.0.1:9999", nil))
 	time.Sleep(time.Second)
 
-	// close
-	fmt.Printf("close")
-	w.Stop()
-	r.Stop()
+	_ = r.Unregister("aaa")
+	_ = r.Unregister("bbb")
+	time.Sleep(time.Second)
+
+	_ = r.Close()
 	time.Sleep(time.Second)
 }

@@ -6,10 +6,14 @@ import (
 )
 
 var (
-	ErrNotSupport   = errors.New("not support")
-	ErrNotFound     = errors.New("not found")
-	ErrNotAvailable = errors.New("not available")
-	ErrNoConfig     = errors.New("no config")
+	ErrNotSupport    = errors.New("not support")
+	ErrNotFound      = errors.New("not found")
+	ErrNotAvailable  = errors.New("not available")
+	ErrNotReady      = errors.New("not ready")
+	ErrHasStopped    = errors.New("has stopped")
+	ErrHasRegistered = errors.New("has registered")
+	ErrInvalidId     = errors.New("invalid id")
+	ErrNoConfig      = errors.New("no config")
 )
 
 // 扩展error接口,方便外部使用

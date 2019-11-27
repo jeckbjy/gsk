@@ -16,8 +16,7 @@ type Registry interface {
 }
 
 const (
-	EventCreate EventType = iota
-	EventUpdate
+	EventUpsert EventType = iota
 	EventDelete
 )
 
@@ -25,10 +24,8 @@ type EventType int
 
 func (t EventType) String() string {
 	switch t {
-	case EventCreate:
-		return "create"
-	case EventUpdate:
-		return "update"
+	case EventUpsert:
+		return "upsert"
 	case EventDelete:
 		return "delete"
 	default:

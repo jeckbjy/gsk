@@ -15,6 +15,20 @@ type Service struct {
 	Endpoints []*Endpoint       `json:"endpoints"`
 }
 
+func (s *Service) Match(filters map[string]string) bool {
+	if len(s.Tags) < len(filters) {
+		return false
+	}
+
+	for k, v := range filters {
+		if s.Tags[k] != v {
+			return false
+		}
+	}
+
+	return true
+}
+
 type Endpoint struct {
 	Name     string `json:"name"`
 	Request  *Value `json:"request"`

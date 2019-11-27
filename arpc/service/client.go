@@ -6,7 +6,7 @@ import (
 
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
-	"github.com/jeckbjy/gsk/arpc/selector"
+	"github.com/jeckbjy/gsk/selector"
 	"github.com/jeckbjy/gsk/util/idgen/xid"
 )
 
@@ -21,7 +21,7 @@ func (c *Client) Send(service string, msg interface{}, opts ...arpc.CallOption) 
 		fn(&o)
 	}
 
-	next, err := c.getNext(service)
+	next, err := c.getNext(service, &o)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (c *Client) Call(service string, req interface{}, rsp interface{}, opts ...
 		o.Future = NewFuture()
 	}
 
-	next, err := c.getNext(service)
+	next, err := c.getNext(service, &o)
 	if err != nil {
 		return err
 	}
@@ -91,29 +91,21 @@ func (c *Client) sendMsg(next selector.Next, pkg arpc.Packet) error {
 }
 
 func (c *Client) getConn(next selector.Next) (anet.Conn, error) {
-	//node, err := next()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//if node.Conn() == nil {
-	//	if conn, err := c.opts.Tran.Dial(node.Address); err != nil {
-	//		return nil, err
-	//	} else {
-	//		node.SetConn(conn)
-	//	}
-	//}
-	//
-	//return node.Conn().(anet.Conn), nil
+	node, err := next()
+	if err != nil {
+		return nil, err
+	}
+
+	return node.Conn(c.opts.Tran)
 }
 
-func (c *Client) getNext(service string) (selector.Next, error) {
+func (c *Client) getNext(service string, opts *arpc.CallOptions) (selector.Next, error) {
 	o := c.opts
 	if len(o.Proxy) > 0 {
 		service = o.Proxy
 	}
 
-	return o.Selector.Select(service)
+	return o.Selector.Select(service, &opts.Options)
 }
 
 func (c *Client) newRequest(req interface{}, o *arpc.CallOptions) arpc.Packet {

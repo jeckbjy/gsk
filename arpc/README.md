@@ -5,5 +5,5 @@
 - 3:服务注册与发现
 - 4:客户端RPC调用
     - 消息重传
-    - 客户端Load balancer
+    - 客户端Load Balancer
     - 同步调用,异步调用支持

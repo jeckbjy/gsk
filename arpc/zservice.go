@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jeckbjy/gsk/anet"
-	"github.com/jeckbjy/gsk/arpc/selector"
 	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/selector"
 )
 
 var (
@@ -87,6 +87,7 @@ const (
 
 type CallOption func(o *CallOptions)
 type CallOptions struct {
+	selector.Options
 	ID     int           // 消息ID
 	Name   string        // 消息名
 	Method string        // 调用函数名

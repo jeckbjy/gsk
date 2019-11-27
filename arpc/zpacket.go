@@ -8,7 +8,7 @@ import (
 type ContentType int
 
 const (
-	CTProtoBuf ContentType = iota
+	CTProtobuf ContentType = iota
 	CTJson
 	CTXml
 	CTText

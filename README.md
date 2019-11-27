@@ -24,13 +24,14 @@
   目前额外依赖了golang.org/x/net/ipv4
 
 ## 核心模块
-- **anet** - asynchronous network,异步网络底层,参考netty
-- **arpc** - asynchronous rpc,异步RPC框架
-    - **codec** - 消息编解码接口
-    - **frame** - 消息粘包接口
-    - **selector** - 客户端Load Balance
-- **registry** - 服务注册与发现,生产环境可以使用etcd,consul,zookeeper等
-- **broker** - 消息队列接口
+- **anet** 异步网络底层(asynchronous network),参考netty
+- **arpc** 异步RPC框架(asynchronous rpc),使用私有协议,消息路由
+- **apm**  性能监控
+- **registry** 服务注册与发现,生产环境可以使用etcd,consul,zookeeper等
+- **selector** 客户端Load Balance
+- **broker** 消息队列接口
+- **store** kv存储
+- **db** 封装简单orm
 
 ## 示例代码
 

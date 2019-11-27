@@ -107,6 +107,11 @@ func (r *_Registry) Query(name string, filters map[string]string) ([]*registry.S
 
 	results := make([]*registry.Service, 0)
 	for _, s := range services {
+		srvName := s.Location
+		if len(name) != 0 && name != srvName {
+			continue
+		}
+
 		srv, err := registry.Unmarshal(s.Server)
 		if err != nil {
 			continue
@@ -114,19 +119,12 @@ func (r *_Registry) Query(name string, filters map[string]string) ([]*registry.S
 
 		// 筛选
 		if filters != nil && len(filters) > 0 {
-			if srv.Tags == nil {
+			if !srv.Match(filters) {
 				continue
-			}
-			for k, v := range filters {
-				if srv.Tags[k] != v {
-					continue
-				}
 			}
 		}
 
-		if len(name) == 0 || name == srv.Name {
-			results = append(results, srv)
-		}
+		results = append(results, srv)
 	}
 
 	return results, nil

@@ -98,7 +98,7 @@ func (w *_Watcher) tick(now int64) {
 func (w *_Watcher) add(srvId string, data string, ttl int) {
 	srv, err := registry.Unmarshal(data)
 	if err == nil {
-		ev := &registry.Event{Type: registry.EventCreate, Id: srvId, Service: srv}
+		ev := &registry.Event{Type: registry.EventUpsert, Id: srvId, Service: srv}
 		w.cb(ev)
 		w.expired.Add(srv, ttl)
 		w.services[srvId] = true

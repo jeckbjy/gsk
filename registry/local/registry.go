@@ -57,25 +57,16 @@ func (r *_Registry) Init(opts *registry.Options) {
 }
 
 func (r *_Registry) Register(srv *registry.Service) error {
-	if len(srv.Nodes) != 1 {
-		return errorx.ErrNotFound
-	}
-
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	node := srv.Nodes[0]
-	if node.Id == "" {
-		return errorx.ErrInvalidId
-	}
-
-	if _, ok := r.advertisers[node.Id]; !ok {
+	if _, ok := r.advertisers[srv.Id]; !ok {
 		data, err := registry.Marshal(srv)
 		if err != nil {
 			return err
 		}
 
-		ad, err := ssdp.Advertise(serviceTarget, node.Id, srv.Name, data, r.maxAge)
+		ad, err := ssdp.Advertise(serviceTarget, srv.Id, srv.Name, data, r.maxAge)
 		if err != nil {
 			return err
 		}
@@ -85,7 +76,7 @@ func (r *_Registry) Register(srv *registry.Service) error {
 		}
 
 		r.alive.Add(srv, r.interval)
-		r.advertisers[node.Id] = ad
+		r.advertisers[srv.Id] = ad
 	}
 
 	return nil
@@ -123,11 +114,11 @@ func (r *_Registry) Query(name string, filters map[string]string) ([]*registry.S
 
 		// 筛选
 		if filters != nil && len(filters) > 0 {
-			if srv.Meta == nil {
+			if srv.Tags == nil {
 				continue
 			}
 			for k, v := range filters {
-				if srv.Meta[k] != v {
+				if srv.Tags[k] != v {
 					continue
 				}
 			}
@@ -174,44 +165,40 @@ func (r *_Registry) Close() error {
 
 func (r *_Registry) tick() {
 	r.ticker = time.NewTicker(time.Millisecond * 30)
-	expired := make([]*ssdp.Advertiser, 0)
-
 loop:
 	for {
 		select {
 		case <-r.ticker.C:
-			expired = expired[:0]
 			now := time.Now().UnixNano() / int64(time.Millisecond)
-
 			r.mux.Lock()
 			// process watcher
 			for _, w := range r.watchers {
 				w.tick(now)
 			}
 			// process alive
-			count := 0
-			for {
-				if count >= len(r.alive) || now < r.alive[0].expire {
-					break
-				}
-				count++
+			r.keepAlive(now)
 
-				e := r.alive[0]
-				nodeID := e.srv.Nodes[0].Id
-				if ad, ok := r.advertisers[nodeID]; ok {
-					expired = append(expired, ad)
-				}
-
-				r.alive[0].Reset()
-				heap.Fix(&r.alive, 0)
-			}
 			r.mux.Unlock()
-			// process
-			for _, ad := range expired {
-				_ = ad.Alive()
-			}
 		case <-r.quit:
 			break loop
 		}
+	}
+}
+
+func (r *_Registry) keepAlive(now int64) {
+	count := 0
+	for {
+		if count >= len(r.alive) || now < r.alive[0].expire {
+			break
+		}
+		count++
+
+		e := r.alive[0]
+		if ad, ok := r.advertisers[e.srv.Id]; ok {
+			_ = ad.Alive()
+		}
+
+		r.alive[0].Reset()
+		heap.Fix(&r.alive, 0)
 	}
 }

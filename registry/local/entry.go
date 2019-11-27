@@ -54,9 +54,9 @@ func (h *eheap) Add(srv *registry.Service, ttl int) {
 }
 
 // 查询索引
-func (h eheap) Find(nodeId string) int {
+func (h eheap) Find(srvId string) int {
 	for i, e := range h {
-		if e.srv.Nodes[0].Id == nodeId {
+		if e.srv.Id == srvId {
 			return i
 		}
 	}
@@ -65,16 +65,16 @@ func (h eheap) Find(nodeId string) int {
 }
 
 // Update 更新heap位置
-func (h *eheap) Update(nodeId string) {
-	if index := h.Find(nodeId); index != -1 {
+func (h *eheap) Update(srvId string) {
+	if index := h.Find(srvId); index != -1 {
 		e := (*h)[index]
 		e.Reset()
 		heap.Fix(h, index)
 	}
 }
 
-func (h *eheap) Remove(nodeId string) {
-	if index := h.Find(nodeId); index != -1 {
+func (h *eheap) Remove(srvId string) {
+	if index := h.Find(srvId); index != -1 {
 		heap.Remove(h, index)
 	}
 }

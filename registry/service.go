@@ -2,27 +2,17 @@ package registry
 
 import "encoding/json"
 
-func NewService(name string, id string, addr string, meta map[string]string) *Service {
-	s := &Service{Name: name, Meta: meta}
-	s.Nodes = append(s.Nodes, &Node{id, addr})
+func NewService(name string, id string, addr string, tags map[string]string) *Service {
+	s := &Service{Id: id, Addr: addr, Name: name, Tags: tags}
 	return s
 }
 
-// 注册时有且只有1个Node,NodeId则为ServiceId
 type Service struct {
+	Id        string            `json:"id"`
+	Addr      string            `json:"addr"`
 	Name      string            `json:"name"`
-	Meta      map[string]string `json:"meta"`
-	Nodes     []*Node           `json:"nodes"`
+	Tags      map[string]string `json:"tags"`
 	Endpoints []*Endpoint       `json:"endpoints"`
-}
-
-func (s *Service) ID() string {
-	return s.Nodes[0].Id
-}
-
-type Node struct {
-	Id      string `json:"id"`
-	Address string `json:"address"`
 }
 
 type Endpoint struct {

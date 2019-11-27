@@ -64,6 +64,7 @@ func (s *Server) Stop() error {
 	}
 
 	// deregister
+	s.deregister()
 
 	if err := callHooks(o.AfterStop); err != nil {
 		gerr = err
@@ -131,28 +132,19 @@ func (s *Server) register() error {
 
 	address = net.JoinHostPort(host, port)
 
-	node := &registry.Node{
-		Id:      s.FullId(),
-		Address: address,
-	}
-
-	srv := &registry.Service{
-		Nodes: []*registry.Node{node},
-	}
+	srv := registry.NewService(o.Name, s.FullId(), address, nil)
 
 	if err := o.Registry.Register(srv); err != nil {
 		return err
 	}
 
-	o.Registry.Start()
 	return nil
 }
 
 func (s *Server) deregister() {
 	o := s.opts
 	if !s.HasFlag(arpc.DisableRegistry) {
-		_ = o.Registry.Deregister(s.FullId())
-		_ = o.Registry.Stop()
+		_ = o.Registry.Close()
 	}
 }
 

@@ -61,12 +61,7 @@ func (r *_Registry) Register(srv *registry.Service) error {
 	defer r.mux.Unlock()
 
 	if _, ok := r.advertisers[srv.Id]; !ok {
-		data, err := srv.Marshal()
-		if err != nil {
-			return err
-		}
-
-		ad, err := ssdp.Advertise(serviceTarget, srv.Id, srv.Name, data, r.maxAge)
+		ad, err := ssdp.Advertise(serviceTarget, srv.Id, srv.Name, srv.Marshal(), r.maxAge)
 		if err != nil {
 			return err
 		}

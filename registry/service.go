@@ -41,9 +41,9 @@ type Value struct {
 }
 
 // 默认使用json编码
-func (srv *Service) Marshal() (string, error) {
-	data, err := json.Marshal(srv)
-	return string(data), err
+func (srv *Service) Marshal() string {
+	data, _ := json.Marshal(srv)
+	return string(data)
 }
 
 func (srv *Service) Unmarshal(data string) error {

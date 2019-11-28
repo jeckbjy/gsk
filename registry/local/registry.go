@@ -61,7 +61,7 @@ func (r *_Registry) Register(srv *registry.Service) error {
 	defer r.mux.Unlock()
 
 	if _, ok := r.advertisers[srv.Id]; !ok {
-		data, err := registry.Marshal(srv)
+		data, err := srv.Marshal()
 		if err != nil {
 			return err
 		}

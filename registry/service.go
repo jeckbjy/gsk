@@ -40,21 +40,18 @@ type Value struct {
 	Name string `json:"name"`
 }
 
-func Marshal(srv *Service) (string, error) {
+// 默认使用json编码
+func (srv *Service) Marshal() (string, error) {
 	data, err := json.Marshal(srv)
-	if err != nil {
-		return "", err
-	}
+	return string(data), err
+}
 
-	return string(data), nil
+func (srv *Service) Unmarshal(data string) error {
+	return json.Unmarshal([]byte(data), srv)
 }
 
 func Unmarshal(data string) (*Service, error) {
 	srv := &Service{}
-	err := json.Unmarshal([]byte(data), srv)
-	if err != nil {
-		return nil, err
-	}
-
-	return srv, nil
+	err := srv.Unmarshal(data)
+	return srv, err
 }

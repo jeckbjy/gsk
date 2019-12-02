@@ -12,7 +12,7 @@ type _Pool struct {
 func (p *_Pool) Obtain() *Node {
 	p.mux.Lock()
 	defer p.mux.Unlock()
-	node := p.free.Pop()
+	node := p.free.popNode()
 	if node == nil {
 		node = &Node{}
 	}
@@ -23,5 +23,5 @@ func (p *_Pool) Obtain() *Node {
 func (p *_Pool) Free(n *Node) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
-	p.free.Push(n)
+	p.free.pushNode(n)
 }

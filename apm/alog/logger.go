@@ -230,10 +230,6 @@ func (l *Logger) Debug(args ...interface{}) {
 	l.Log(LevelDebug, args...)
 }
 
-func (l *Logger) Print(args ...interface{}) {
-	l.Log(LevelPrint, args...)
-}
-
 func (l *Logger) Info(args ...interface{}) {
 	l.Log(LevelInfo, args...)
 }
@@ -256,10 +252,6 @@ func (l *Logger) Tracef(format string, args ...interface{}) {
 
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	l.Logf(LevelDebug, format, args...)
-}
-
-func (l *Logger) Printf(format string, args ...interface{}) {
-	l.Logf(LevelPrint, format, args...)
 }
 
 func (l *Logger) Infof(format string, args ...interface{}) {

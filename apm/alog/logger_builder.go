@@ -28,10 +28,6 @@ func (b *Builder) Debug(args ...interface{}) {
 	b.Log(LevelDebug, args...)
 }
 
-func (b *Builder) Print(args ...interface{}) {
-	b.Log(LevelPrint, args...)
-}
-
 func (b *Builder) Info(args ...interface{}) {
 	b.Log(LevelInfo, args...)
 }
@@ -54,10 +50,6 @@ func (b *Builder) Tracef(format string, args ...interface{}) {
 
 func (b *Builder) Debugf(format string, args ...interface{}) {
 	b.Logf(LevelDebug, format, args...)
-}
-
-func (b *Builder) Printf(format string, args ...interface{}) {
-	b.Logf(LevelPrint, format, args...)
 }
 
 func (b *Builder) Infof(format string, args ...interface{}) {

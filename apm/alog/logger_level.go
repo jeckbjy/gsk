@@ -8,7 +8,6 @@ import (
 const (
 	LevelTrace Level = iota
 	LevelDebug
-	LevelPrint
 	LevelInfo
 	LevelWarn
 	LevelError
@@ -18,15 +17,6 @@ const (
 )
 
 type Level uint8
-
-func (l Level) Short() string {
-	switch l {
-	case LevelFatal:
-		return "Fat"
-	case LevelError:
-		return "Err"
-	}
-}
 
 func (l Level) String() string {
 	switch l {
@@ -38,8 +28,6 @@ func (l Level) String() string {
 		return "Warn"
 	case LevelInfo:
 		return "Info"
-	case LevelPrint:
-		return "Print"
 	case LevelDebug:
 		return "Debug"
 	case LevelTrace:
@@ -61,10 +49,8 @@ func ParseLevel(value string) (Level, error) {
 		return LevelWarn, nil
 	case "info":
 		return LevelInfo, nil
-	case "print":
-		return LevelPrint, nil
 	case "debug":
-		return LevelPrint, nil
+		return LevelDebug, nil
 	case "trace":
 		return LevelTrace, nil
 	case "off":

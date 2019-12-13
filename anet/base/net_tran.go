@@ -1,8 +1,8 @@
 package base
 
 import (
+	"errors"
 	"net"
-	"time"
 
 	"github.com/jeckbjy/gsk/anet"
 )
@@ -74,7 +74,6 @@ func DoListen(conf *anet.ListenOptions, t anet.Tran, cb ListenCB) (anet.Listener
 
 // DoDial auxiliary function for dial
 func DoDial(conf *anet.DialOptions, t anet.Tran, cb DialCB) (anet.Conn, error) {
-
 	if conf.Blocking {
 		var conn anet.Conn
 		c, err := cb()
@@ -91,16 +90,13 @@ func DoDial(conf *anet.DialOptions, t anet.Tran, cb DialCB) (anet.Conn, error) {
 		// 使用老的Conn
 		if conf.Conn != nil {
 			conn = conf.Conn.(*Conn)
+			if !conn.IsDial() {
+				return conn, errors.New("bad dialer")
+			}
 		}
 
 		if conn == nil {
 			conn = NewConn(t, true, conf.Tag)
-		}
-
-		if conf.RetryMax != 0 {
-			conn.SetCloseCallback(func() {
-				_, _ = DoAsyncDial(conn, conf, cb)
-			})
 		}
 
 		return DoAsyncDial(conn, conf, cb)
@@ -110,31 +106,20 @@ func DoDial(conf *anet.DialOptions, t anet.Tran, cb DialCB) (anet.Conn, error) {
 // DoAsyncDial 尝试异步连接
 func DoAsyncDial(conn *Conn, conf *anet.DialOptions, cb DialCB) (anet.Conn, error) {
 	go func() {
-		count := 0
-		for {
-			count++
-			c, err := cb()
-			if err == nil {
-				// dial success
-				conn.Open(c)
+		c, err := cb()
+		if err == nil {
+			// dial success
+			if err := conn.Open(c); err != nil {
 				if conf.Callback != nil {
 					conf.Callback(conn, nil)
 				}
-				break
 			}
-
+		} else {
 			if conf.Callback != nil {
 				conf.Callback(conn, err)
 			}
 
-			// handle error
 			conn.Error(err)
-			if count > conf.RetryMax {
-				break
-			}
-
-			// wait for next
-			time.Sleep(conf.Interval)
 		}
 	}()
 

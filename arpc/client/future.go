@@ -1,4 +1,4 @@
-package service
+package client
 
 import (
 	"sync"
@@ -7,24 +7,24 @@ import (
 )
 
 func NewFuture() arpc.Future {
-	f := &Future{}
+	f := &_Future{}
 	f.Init()
 	return f
 }
 
-// Future 实现IFuture接口
-type Future struct {
+// _Future 实现Future接口
+type _Future struct {
 	count int
 	cond  *sync.Cond
 	mux   sync.Mutex
 	err   error
 }
 
-func (f *Future) Init() {
+func (f *_Future) Init() {
 	f.cond = sync.NewCond(&f.mux)
 }
 
-func (f *Future) Add(delta int) error {
+func (f *_Future) Add(delta int) error {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	if f.err != nil {
@@ -35,7 +35,7 @@ func (f *Future) Add(delta int) error {
 	return nil
 }
 
-func (f *Future) Done() error {
+func (f *_Future) Done() error {
 	f.mux.Lock()
 	if f.err != nil {
 		f.mux.Unlock()
@@ -50,7 +50,7 @@ func (f *Future) Done() error {
 	return nil
 }
 
-func (f *Future) Fail(err error) error {
+func (f *_Future) Fail(err error) error {
 	f.mux.Lock()
 	if f.err != nil {
 		f.mux.Unlock()
@@ -63,7 +63,7 @@ func (f *Future) Fail(err error) error {
 	return nil
 }
 
-func (f *Future) Wait() error {
+func (f *_Future) Wait() error {
 	var err error
 	f.mux.Lock()
 	for f.count > 0 {

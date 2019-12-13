@@ -1,5 +1,17 @@
 package registry
 
+import "sync/atomic"
+
+var defaultRegistry atomic.Value
+
+func Default() Registry {
+	return defaultRegistry.Load().(Registry)
+}
+
+func SetDefault(d Registry) {
+	defaultRegistry.Store(d)
+}
+
 // 服务注册与发现
 // Register:注册服务,底层会保持KeepAlive
 // Unregister:根据服务ID注销服务

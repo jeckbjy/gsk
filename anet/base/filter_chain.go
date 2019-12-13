@@ -9,6 +9,7 @@ func NewFilterChain() *FilterChain {
 // 分为InBound和OutBound
 // InBound: 从前向后执行,包括Read,Open,Error
 // OutBound:从后向前执行,包括Write,Close
+//
 type FilterChain struct {
 	filters []anet.Filter
 }
@@ -57,31 +58,40 @@ func (fc *FilterChain) AddLast(filters ...anet.Filter) {
 }
 
 func (fc *FilterChain) HandleOpen(conn anet.Conn) {
-	ctx := ctxpool.New(fc, conn, true, doOpen)
-	ctx.Call()
+	ctx := ctxpool.New(fc.filters, conn, true, doOpen)
+	if err := ctx.Call(); err != nil {
+		fc.HandleError(conn, err)
+	}
 }
 
 func (fc *FilterChain) HandleClose(conn anet.Conn) {
-	ctx := ctxpool.New(fc, conn, true, doClose)
-	ctx.Call()
+	ctx := ctxpool.New(fc.filters, conn, true, doClose)
+	if err := ctx.Call(); err != nil {
+		fc.HandleError(conn, err)
+	}
 }
 
 func (fc *FilterChain) HandleRead(conn anet.Conn, msg interface{}) {
-	ctx := ctxpool.New(fc, conn, true, doRead)
+	ctx := ctxpool.New(fc.filters, conn, true, doRead)
 	ctx.SetData(msg)
-	ctx.Call()
+	if err := ctx.Call(); err != nil {
+		fc.HandleError(conn, err)
+	}
 }
 
 func (fc *FilterChain) HandleWrite(conn anet.Conn, msg interface{}) {
-	ctx := ctxpool.New(fc, conn, false, doWrite)
+	ctx := ctxpool.New(fc.filters, conn, false, doWrite)
 	ctx.SetData(msg)
-	ctx.Call()
+	if err := ctx.Call(); err != nil {
+		fc.HandleError(conn, err)
+	}
 }
 
 func (fc *FilterChain) HandleError(conn anet.Conn, err error) {
-	ctx := ctxpool.New(fc, conn, false, doError)
+	ctx := ctxpool.New(fc.filters, conn, false, doError)
 	ctx.SetError(err)
-	ctx.Call()
+	// 不能递归
+	_ = ctx.Call()
 }
 
 func doOpen(f anet.Filter, ctx anet.FilterCtx) error {

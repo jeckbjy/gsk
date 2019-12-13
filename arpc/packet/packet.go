@@ -2,6 +2,7 @@ package packet
 
 import (
 	"errors"
+	"time"
 
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/codec"
@@ -27,6 +28,15 @@ type Packet struct {
 	body        interface{}
 	buffer      *buffer.Buffer
 	codec       codec.Codec
+	internal    interface{} // 以下字段不需要序列化
+	ttl         time.Duration
+	retry       int
+	priority    int
+	callInfo    *arpc.CallInfo
+}
+
+func (p *Packet) Reset() {
+	*p = Packet{}
 }
 
 func (p *Packet) IsAck() bool {
@@ -163,6 +173,46 @@ func (p *Packet) SetBuffer(b *buffer.Buffer) {
 	p.buffer = b
 }
 
+func (p *Packet) Internal() interface{} {
+	return p.internal
+}
+
+func (p *Packet) SetInternal(value interface{}) {
+	p.internal = value
+}
+
+func (p *Packet) TTL() time.Duration {
+	return p.ttl
+}
+
+func (p *Packet) SetTTL(ttl time.Duration) {
+	p.ttl = ttl
+}
+
+func (p *Packet) Retry() int {
+	return p.retry
+}
+
+func (p *Packet) SetRetry(retry int) {
+	p.retry = retry
+}
+
+func (p *Packet) Priority() int {
+	return p.priority
+}
+
+func (p *Packet) SetPriority(value int) {
+	p.priority = value
+}
+
+func (p *Packet) CallInfo() *arpc.CallInfo {
+	return p.callInfo
+}
+
+func (p *Packet) SetCallInfo(info *arpc.CallInfo) {
+	p.callInfo = info
+}
+
 func (p *Packet) Encode() error {
 	if p.buffer == nil {
 		p.buffer = buffer.New()
@@ -259,6 +309,7 @@ func (p *Packet) Decode() (err error) {
 			_ = p.SetExtra(uint(key), s)
 		}
 	}
+
 	// lazy decode body
 	if p.body != nil && p.codec != nil {
 		if err := p.codec.Decode(p.buffer, p.body); err != nil {

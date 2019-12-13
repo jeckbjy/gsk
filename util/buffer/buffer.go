@@ -385,6 +385,17 @@ func (b *Buffer) Concat() {
 	b.off = b.pos
 }
 
+// Visit 遍历所有数据
+func (b *Buffer) Visit(cb func([]byte) bool) {
+	for iter := b.head; iter != nil; iter = iter.next {
+		if len(iter.data) != 0 {
+			if !cb(iter.data) {
+				break
+			}
+		}
+	}
+}
+
 // check 检测一下当前游标是否有效,如果无效则移动到正确位置
 func (b *Buffer) check() {
 	if b.node != nil || b.len == 0 {

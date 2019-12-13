@@ -40,6 +40,7 @@ func (f *HandlerFilter) HandleRead(ctx anet.FilterCtx) error {
 
 	log.Printf("recv: %s", req.Text)
 	log.Printf("send: %s", rsp.Text)
+
 	_ = ctx.Conn().Send(rsp)
 	return nil
 }

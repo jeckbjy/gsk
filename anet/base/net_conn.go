@@ -1,7 +1,6 @@
 package base
 
 import (
-	"errors"
 	"net"
 	"sync"
 
@@ -10,32 +9,33 @@ import (
 )
 
 func NewConn(tran anet.Tran, client bool, tag string) *Conn {
-	conn := &Conn{tran: tran, client: client, tag: tag, status: anet.DISCONNECTED}
+	conn := &Conn{tran: tran, client: client, tag: tag, status: anet.CONNECTING}
+	conn.cond = sync.NewCond(&conn.mutex)
 	conn.rbuf = buffer.New()
 	conn.wbuf = buffer.New()
 	return conn
 }
 
+// 基于标准net.Conn的实现,由于是阻塞IO,读写各自起了一个协程
 type Conn struct {
-	tran    anet.Tran
-	client  bool
-	tag     string
-	sock    net.Conn               // 原始socket
-	rbuf    *buffer.Buffer         // 读缓存
-	wbuf    *buffer.Buffer         // 写缓存
-	writing bool                   // 写线程是否在执行中
-	mutex   sync.Mutex             // 锁
-	onClose func()                 // 关闭时回调,用于自动断线重连
-	status  anet.Status            // 当前状态
-	data    map[string]interface{} // 自定义数据
-}
-
-func (c *Conn) SetCloseCallback(cb func()) {
-	c.onClose = cb
+	tran   anet.Tran              // transport
+	sock   net.Conn               // 原始socket
+	rbuf   *buffer.Buffer         // 读缓存
+	wbuf   *buffer.Buffer         // 写缓存
+	mutex  sync.Mutex             // 锁
+	cond   *sync.Cond             // 用于通知写协程退出
+	status anet.Status            // 当前状态
+	client bool                   // 用于标识是服务器端接收的连接还是客户端Dial产生的链接
+	tag    string                 // 用于给外部标识类型
+	data   map[string]interface{} // 自定义数据
 }
 
 func (c *Conn) GetChain() anet.FilterChain {
 	return c.tran.GetChain()
+}
+
+func (c *Conn) Tran() anet.Tran {
+	return c.tran
 }
 
 func (c *Conn) Tag() string {
@@ -58,7 +58,18 @@ func (c *Conn) Set(key string, val interface{}) {
 }
 
 func (c *Conn) Status() anet.Status {
-	return c.status
+	c.mutex.Lock()
+	status := c.status
+	c.mutex.Unlock()
+	return status
+}
+
+func (c *Conn) IsActive() bool {
+	return c.Status() == anet.OPEN
+}
+
+func (c *Conn) IsDial() bool {
+	return c.client
 }
 
 func (c *Conn) LocalAddr() net.Addr {
@@ -69,34 +80,44 @@ func (c *Conn) RemoteAddr() net.Addr {
 	return c.sock.RemoteAddr()
 }
 
-func (c *Conn) Open(conn net.Conn) {
-	if conn == nil {
-		return
+func (c *Conn) Open(conn net.Conn) error {
+	var err error
+	c.mutex.Lock()
+	if c.sock == nil {
+		c.sock = conn
+		c.status = anet.OPEN
+		c.rbuf.Clear()
+	} else {
+		err = anet.ErrHasOpened
 	}
 
-	c.mutex.Lock()
-	c.sock = conn
-	c.status = anet.CONNECTED
 	c.mutex.Unlock()
 
-	go c.doRead()
-	go c.doWrite()
+	if err == nil {
+		go c.doRead(conn)
+		go c.doWrite()
+		c.GetChain().HandleOpen(c)
+	}
 
-	c.GetChain().HandleOpen(c)
+	return err
 }
 
 func (c *Conn) Close() error {
 	c.mutex.Lock()
-	sock := c.sock
-	c.status = anet.CLOSED
-	c.sock = nil
-	c.mutex.Unlock()
 
-	if sock != nil {
-		return sock.Close()
-	} else {
-		return errors.New("bad connection when close")
+	status := c.status
+	if c.status == anet.OPEN {
+		c.status = anet.CLOSING
 	}
+
+	c.mutex.Unlock()
+	// 通知写线程退出
+	// TODO:阻塞等待?
+	if status == anet.OPEN {
+		c.cond.Signal()
+	}
+
+	return nil
 }
 
 func (c *Conn) Read() *buffer.Buffer {
@@ -104,19 +125,23 @@ func (c *Conn) Read() *buffer.Buffer {
 }
 
 func (c *Conn) Write(buf *buffer.Buffer) error {
+	var err error
 	c.mutex.Lock()
-	c.wbuf.AppendBuffer(buf)
-	writing := c.writing
-	if !c.writing {
-		c.writing = true
+	// 连接过程中也可以发送,等连接成功后会主动发送所有数据
+	// 如果连接失败则会清空数据
+	if c.status == anet.CONNECTING || c.status == anet.OPEN {
+		c.wbuf.AppendBuffer(buf)
+	} else {
+		err = anet.ErrHasClosed
 	}
+
 	c.mutex.Unlock()
 
-	if !writing {
-		go c.doWrite()
+	if err == nil {
+		c.cond.Signal()
 	}
 
-	return nil
+	return err
 }
 
 func (c *Conn) Send(msg interface{}) error {
@@ -124,50 +149,101 @@ func (c *Conn) Send(msg interface{}) error {
 	return nil
 }
 
+func (c *Conn) Clear() {
+	c.mutex.Lock()
+	c.wbuf.Clear()
+	c.rbuf.Clear()
+	c.mutex.Unlock()
+}
+
 func (c *Conn) Error(err error) {
+	// 是否需要清空写buf?
+	//c.mutex.Lock()
+	//if c.status == anet.CONNECTING {
+	//	c.wbuf.Clear()
+	//}
+	//c.mutex.Unlock()
 	c.GetChain().HandleError(c, err)
 }
 
-func (c *Conn) doRead() {
+func (c *Conn) doClose(err error) anet.Status {
+	c.mutex.Lock()
+	status := c.status
+	if c.status == anet.CLOSED {
+		c.mutex.Unlock()
+		return status
+	}
+
+	c.wbuf.Clear()
+	c.rbuf.Clear()
+	c.status = anet.CLOSED
+	if c.sock != nil {
+		_ = c.sock.Close()
+		c.sock = nil
+	}
+	c.mutex.Unlock()
+
+	if err != nil {
+		c.Error(err)
+	}
+
+	return status
+}
+
+func (c *Conn) doRead(sock net.Conn) {
+	// TODO:通过配置分配内存?
+	chunk := 1024
 	for {
-		// TODO:通过配置分配内存?
-		data := make([]byte, 1024)
-		n, err := c.sock.Read(data)
+		data := make([]byte, chunk)
+		n, err := sock.Read(data)
+
 		if err != nil {
-			c.GetChain().HandleError(c, err)
-			c.rbuf.Clear()
+			status := c.doClose(err)
+			if status == anet.OPEN {
+				// 通知write退出
+				c.cond.Signal()
+			}
 			break
 		}
-		//
+
+		if c.Status() != anet.OPEN {
+			// 丢弃closing状态中发来的消息,并退出
+			c.Error(anet.ErrHasClosed)
+			break
+		}
+
 		c.rbuf.Append(data[:n])
 		c.GetChain().HandleRead(c, c.rbuf)
 	}
 }
 
 func (c *Conn) doWrite() {
-	var err error
 	b := buffer.New()
-	c.mutex.Lock()
 	for {
-		if c.wbuf.Empty() {
-			break
-		}
-		buffer.Swap(c.wbuf, b)
-
-		c.mutex.Unlock()
-		_, err = b.WriteAll(c.sock)
 		c.mutex.Lock()
+		for (c.status == anet.CONNECTING) || (c.status == anet.OPEN && c.wbuf.Empty()) {
+			c.cond.Wait()
+		}
 
-		if err != nil {
-			// 是否需要恢复剩余未发送完成数据?
+		buffer.Swap(c.wbuf, b)
+		sock := c.sock
+		status := c.status
+		c.mutex.Unlock()
+
+		// 发送剩余数据
+		if sock != nil && !b.Empty() {
+			_, err := b.WriteAll(sock)
+			if err != nil {
+				c.doClose(err)
+				break
+			}
+		}
+
+		if status == anet.CLOSING {
+			c.doClose(nil)
 			break
 		}
-	}
 
-	c.writing = false
-	c.wbuf.Clear()
-	c.mutex.Unlock()
-	if err != nil {
-		c.GetChain().HandleError(c, err)
+		b.Clear()
 	}
 }

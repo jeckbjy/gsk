@@ -8,7 +8,7 @@ import (
 	"github.com/jeckbjy/gsk/util/errorx"
 )
 
-func NewSelector(reg registry.Registry) selector.Selector {
+func New(reg registry.Registry) selector.Selector {
 	s := &_Selector{reg: reg, groups: make(map[string]*_Group), nodes: make(map[string]*_Node)}
 	return s
 }

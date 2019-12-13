@@ -1,6 +1,8 @@
 package arpc
 
 import (
+	"time"
+
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/util/buffer"
 )
@@ -8,11 +10,29 @@ import (
 type ContentType int
 
 const (
-	CTProtobuf ContentType = iota
+	CTProto ContentType = iota
 	CTJson
 	CTXml
+	CTGob
 	CTText
 )
+
+func (ct ContentType) String() string {
+	switch ct {
+	case CTProto:
+		return "proto"
+	case CTJson:
+		return "json"
+	case CTXml:
+		return "xml"
+	case CTGob:
+		return "gob"
+	case CTText:
+		return "text"
+	default:
+		return "unknown"
+	}
+}
 
 type CommandType int
 
@@ -52,6 +72,8 @@ const (
 const HFExtraMax = 6
 const HFExtraMask = ^uint16(1<<HFExtra - 1)
 
+type NewPacket func() Packet
+
 // 私有通信协议
 // 编码格式:Flag[2byte]+Head+Body
 // Flag: 固定两个字节,每位标识对应的head是否有数据
@@ -74,7 +96,13 @@ const HFExtraMask = ^uint16(1<<HFExtra - 1)
 // Service:服务类型,用于消息路由,也可以不使用此字段,而是自行根据消息ID分段或者自行编码
 // Extra: 扩展字段,使用者可自行定义含义, 使用int索引定位,不能超过7
 // Head:附加参数,kv结构,更加灵活,但是消耗也会更多,key要求不能含有|
+//
+// 有几个特殊字段,不需要进行编码通信,仅仅用于系统内部调度
+// TTL,Retry:用于客户端RPC调用超时设置,也可用于服务器端当资源没有准备好时重试,超过一定次数则拒绝服务
+// Priority:用于Executor调度优先级
+// Internal:用于系统扩展,可以透传任意数据
 type Packet interface {
+	Reset()
 	IsAck() bool
 	SetAck(ack bool)
 	Status() uint
@@ -103,11 +131,20 @@ type Packet interface {
 	SetCodec(codec.Codec)
 	Buffer() *buffer.Buffer
 	SetBuffer(b *buffer.Buffer)
+	// 不需要序列化字段
+	Internal() interface{}
+	SetInternal(interface{})
+	TTL() time.Duration
+	SetTTL(ttl time.Duration)
+	Retry() int
+	SetRetry(value int)
+	Priority() int
+	SetPriority(value int)
+	CallInfo() *CallInfo
+	SetCallInfo(info *CallInfo)
 	// 编解码接口
 	Encode() error
 	Decode() error
 	// 解析body
 	DecodeBody(msg interface{}) error
 }
-
-type NewPacket func() Packet

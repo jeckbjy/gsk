@@ -2,6 +2,7 @@ package frame
 
 import (
 	"errors"
+	"sync/atomic"
 
 	"github.com/jeckbjy/gsk/util/buffer"
 )
@@ -9,14 +10,14 @@ import (
 var ErrOverflow = errors.New("frame overflow")
 var ErrIncomplete = errors.New("frame data incomplete")
 
-var gFrameMap = make(map[string]Frame)
+var defaultFrame atomic.Value
 
-func Add(f Frame) {
-	gFrameMap[f.Name()] = f
+func Default() Frame {
+	return defaultFrame.Load().(Frame)
 }
 
-func Get(name string) Frame {
-	return gFrameMap[name]
+func SetDefault(r Frame) {
+	defaultFrame.Store(r)
 }
 
 // Frame 用于粘包处理

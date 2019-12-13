@@ -10,18 +10,6 @@ func WithMsgID(msgid int) CallOption {
 	}
 }
 
-func WithName(name string) CallOption {
-	return func(o *CallOptions) {
-		o.Name = name
-	}
-}
-
-func WithMethod(m string) CallOption {
-	return func(o *CallOptions) {
-		o.Method = m
-	}
-}
-
 func WithFuture(f Future) CallOption {
 	return func(o *CallOptions) {
 		o.Future = f

@@ -9,10 +9,6 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-func init() {
-	frame.Add(New())
-}
-
 func New() frame.Frame {
 	return &Frame{}
 }

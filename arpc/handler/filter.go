@@ -8,19 +8,52 @@ import (
 	"github.com/jeckbjy/gsk/anet/base"
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/arpc/frame"
+	"github.com/jeckbjy/gsk/arpc/packet"
 	"github.com/jeckbjy/gsk/codec"
+	"github.com/jeckbjy/gsk/codec/gobc"
+	"github.com/jeckbjy/gsk/codec/jsonc"
+	"github.com/jeckbjy/gsk/codec/protoc"
+	"github.com/jeckbjy/gsk/codec/xmlc"
 	"github.com/jeckbjy/gsk/exec"
 	"github.com/jeckbjy/gsk/util/buffer"
+	"github.com/jeckbjy/gsk/util/errorx"
 )
 
-func NewFilter() anet.Filter {
-	return &Filter{}
+// 创建Filter,参数通过反射类型获得,不传则使用默认
+func NewFilter(args ...interface{}) anet.Filter {
+	filter := &Filter{
+		frame:   frame.Default(),
+		creator: packet.New,
+		router:  arpc.DefaultRouter(),
+		exec:    exec.Default(),
+	}
+
+	for _, a := range args {
+		if a == nil {
+			continue
+		}
+		switch v := a.(type) {
+		case frame.Frame:
+			filter.frame = v
+		case arpc.Router:
+			filter.router = v
+		case arpc.NewPacket:
+			filter.creator = v
+		case exec.Executor:
+			filter.exec = v
+		case arpc.Middleware:
+			filter.middleware = append(filter.middleware, v)
+		case []arpc.Middleware:
+			filter.middleware = append(filter.middleware, v...)
+		}
+	}
+
+	return filter
 }
 
 type Filter struct {
 	base.Filter
 	frame      frame.Frame
-	codec      codec.Codec
 	router     arpc.Router
 	creator    arpc.NewPacket
 	exec       exec.Executor
@@ -51,8 +84,6 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 
 	// parse request packet
 	req := f.creator()
-	req.SetBuffer(data)
-	req.SetCodec(f.codec)
 	if err := req.Decode(); err != nil {
 		return err
 	}
@@ -62,9 +93,17 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 		return err
 	}
 
+	pcodec := getCodec(req.ContentType())
+	if pcodec == nil {
+		return errorx.ErrNotSupport
+	}
+
+	req.SetBuffer(data)
+	req.SetCodec(pcodec)
+
 	// create response packet
 	rsp := f.creator()
-	rsp.SetCodec(f.codec)
+	rsp.SetCodec(pcodec)
 
 	// create context
 	context := NewContext(ctx.Conn(), req, rsp)
@@ -90,16 +129,26 @@ func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 		// 外部已经系列化好了,比如广播消息,发送效率更高
 		buff = v
 	case arpc.Packet:
+		pcodec := getCodec(v.ContentType())
+		if pcodec == nil {
+			return errorx.ErrNotSupport
+		}
+
 		// 消息包,序列化数据到新buffer中
-		buff := buffer.New()
-		v.SetCodec(f.codec)
+		buff = buffer.New()
+		v.SetCodec(pcodec)
 		v.SetBuffer(buff)
 		if err := v.Encode(); err != nil {
 			return err
 		}
+		// 如果是Call,注册到router中监听回调和超时
+		if info := v.CallInfo(); info != nil {
+			if err := f.router.RegisterRPC(v); err != nil {
+				return err
+			}
+		}
 	default:
-		ctx.Next()
-		return nil
+		return ctx.Next()
 	}
 
 	// 写入Frame
@@ -110,4 +159,20 @@ func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 	// 准备发送消息
 	ctx.SetData(buff)
 	return nil
+}
+
+// 获取codec
+func getCodec(ct arpc.ContentType) codec.Codec {
+	switch ct {
+	case arpc.CTProto:
+		return protoc.New()
+	case arpc.CTJson:
+		return jsonc.New()
+	case arpc.CTXml:
+		return xmlc.New()
+	case arpc.CTGob:
+		return gobc.New()
+	default:
+		return nil
+	}
 }

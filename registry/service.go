@@ -7,14 +7,15 @@ func NewService(name string, id string, addr string, tags map[string]string) *Se
 	return s
 }
 
+// TODO:添加其他信息,比如Version,Zone,Endpoint等信息
 type Service struct {
-	Id        string            `json:"id"`
-	Addr      string            `json:"addr"`
-	Name      string            `json:"name"`
-	Tags      map[string]string `json:"tags"`
-	Endpoints []*Endpoint       `json:"endpoints"`
+	Id   string            `json:"id"`
+	Addr string            `json:"addr"`
+	Name string            `json:"name"`
+	Tags map[string]string `json:"tags"`
 }
 
+/// 检测Service是否完全满足filter条件
 func (s *Service) Match(filters map[string]string) bool {
 	if len(s.Tags) < len(filters) {
 		return false
@@ -29,25 +30,14 @@ func (s *Service) Match(filters map[string]string) bool {
 	return true
 }
 
-type Endpoint struct {
-	Name     string `json:"name"`
-	Request  *Value `json:"request"`
-	Response *Value `json:"response"`
-}
-
-type Value struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
-}
-
 // 默认使用json编码
-func (srv *Service) Marshal() string {
-	data, _ := json.Marshal(srv)
+func (s *Service) Marshal() string {
+	data, _ := json.Marshal(s)
 	return string(data)
 }
 
-func (srv *Service) Unmarshal(data string) error {
-	return json.Unmarshal([]byte(data), srv)
+func (s *Service) Unmarshal(data string) error {
+	return json.Unmarshal([]byte(data), s)
 }
 
 func Unmarshal(data string) (*Service, error) {

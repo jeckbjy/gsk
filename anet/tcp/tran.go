@@ -7,10 +7,6 @@ import (
 	"github.com/jeckbjy/gsk/anet/base"
 )
 
-func init() {
-	anet.Add("tcp", New)
-}
-
 func New() anet.Tran {
 	return &Tran{}
 }

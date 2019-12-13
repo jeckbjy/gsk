@@ -3,10 +3,9 @@ package registry
 import (
 	"sync"
 
-	"github.com/jeckbjy/gsk/selector"
-
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/registry"
+	"github.com/jeckbjy/gsk/selector"
 )
 
 type _Node struct {

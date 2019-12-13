@@ -17,7 +17,7 @@ func TestEncode(t *testing.T) {
 	pkg := New()
 	pkg.SetAck(true)
 	pkg.SetMsgID(1)
-	pkg.SetSeqID(10)
+	pkg.SetSeqID("10")
 	pkg.SetName("test")
 	pkg.SetService("game")
 	pkg.SetCodec(codec)

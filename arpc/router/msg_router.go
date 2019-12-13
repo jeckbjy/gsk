@@ -115,7 +115,7 @@ func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
 		method = reflects.FuncName(v.Pointer())
 	}
 
-	info := &_MsgInfo{Handler: handler, ID: o.MsgID, Name: name, Method: method}
+	info := &_MsgInfo{Handler: handler, ID: o.ID, Name: name, Method: method}
 	if info.ID == 0 && info.Name == "" && info.Method == "" {
 		return ErrInvalidHandler
 	}

@@ -2,12 +2,23 @@ package exec
 
 import (
 	"errors"
+	"sync/atomic"
 )
 
 var (
 	ErrAlreadyStop = errors.New("already stop")
 	//ErrBadHashIndex = errors.New("bad hash index")
 )
+
+var defaultExec atomic.Value
+
+func Default() Executor {
+	return defaultExec.Load().(Executor)
+}
+
+func SetDefault(e Executor) {
+	defaultExec.Store(e)
+}
 
 type Task interface {
 	Run() error

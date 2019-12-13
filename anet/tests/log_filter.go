@@ -18,7 +18,7 @@ func (f *LogFilter) Name() string {
 
 func (f *LogFilter) HandleRead(ctx anet.FilterCtx) error {
 	if buff, ok := ctx.Data().(*buffer.Buffer); ok {
-		log.Printf("recv data:%+v", buff.Len())
+		log.Printf("log read, recv data:%+v", buff.Len())
 	}
 
 	return nil
@@ -26,8 +26,14 @@ func (f *LogFilter) HandleRead(ctx anet.FilterCtx) error {
 
 func (f *LogFilter) HandleWrite(ctx anet.FilterCtx) error {
 	if buff, ok := ctx.Data().(*buffer.Buffer); ok {
-		log.Printf("send data:%+v", buff.Len())
+		log.Printf("log write,send data:%+v", buff.Len())
 	}
+
+	return nil
+}
+
+func (f *LogFilter) HandleError(ctx anet.FilterCtx) error {
+	log.Printf("some err,%+v", ctx.Error())
 
 	return nil
 }

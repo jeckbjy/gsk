@@ -9,10 +9,6 @@ import (
 	"github.com/jeckbjy/gsk/anet/nio/internal"
 )
 
-func init() {
-	anet.Add("nio", New)
-}
-
 func New() anet.Tran {
 	return &nTran{}
 }

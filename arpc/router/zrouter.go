@@ -4,6 +4,10 @@ import (
 	"github.com/jeckbjy/gsk/arpc"
 )
 
+func init() {
+	arpc.SetDefaultRouter(New())
+}
+
 func New() arpc.Router {
 	r := &Router{}
 	r.msg.Init()
@@ -25,12 +29,17 @@ func (r *Router) Find(pkg arpc.Packet) (arpc.Handler, error) {
 	}
 }
 
-func (r *Router) Register(srv interface{}, o *arpc.RegisterOptions) error {
-	if o.SeqID != "" {
-		return r.rpc.Register(srv, o)
-	} else {
-		return r.msg.Register(srv, o)
+func (r *Router) Register(srv interface{}, opts ...arpc.RegisterOption) error {
+	o := arpc.RegisterOptions{}
+	for _, fn := range opts {
+		fn(&o)
 	}
+
+	return r.msg.Register(srv, &o)
+}
+
+func (r *Router) RegisterRPC(req arpc.Packet) error {
+	return r.rpc.Register(req)
 }
 
 func (r *Router) Close() error {

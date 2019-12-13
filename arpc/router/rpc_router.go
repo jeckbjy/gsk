@@ -24,14 +24,11 @@ const (
 )
 
 type _RpcInfo struct {
-	Handler  arpc.Handler
-	SeqID    string         // RPC回调ID
+	Handler  arpc.Handler   // 消息回调
+	Request  arpc.Packet    // 发送的请求
+	Info     *arpc.CallInfo // 配置信息
 	Expire   int64          // 过期时间
-	Future   arpc.Future    // 完成通知
-	RetryCB  arpc.RetryFunc // 重试回调
-	RetryMax int            // 最大重试次数
 	RetryNum int            // 当前重试次数
-	Req      arpc.Packet
 }
 
 type _RpcRouter struct {
@@ -60,17 +57,20 @@ func (r *_RpcRouter) Find(pkg arpc.Packet) (arpc.Handler, error) {
 }
 
 // 注册RPC回调,支持两种形式,Ptr同步阻塞调用,Func异步非阻塞调用
-func (r *_RpcRouter) Register(rsp interface{}, o *arpc.RegisterOptions) error {
+func (r *_RpcRouter) Register(request arpc.Packet) error {
+	info := request.CallInfo()
+	future := info.Future
+	rsp := info.Response
 	v := reflect.ValueOf(rsp)
 	t := v.Type()
 	switch t.Kind() {
 	case reflect.Ptr:
-		// 阻塞同步回调
+		// 指针类型,阻塞同步回调
 		if t.Elem().Kind() != reflect.Struct {
 			return ErrInvalidResponse
 		}
 
-		if o.Future == nil {
+		if future == nil {
 			return ErrInvalidFuture
 		}
 
@@ -78,9 +78,9 @@ func (r *_RpcRouter) Register(rsp interface{}, o *arpc.RegisterOptions) error {
 			if err := ctx.Response().DecodeBody(rsp); err != nil {
 				return err
 			}
-			return o.Future.Done()
+			return future.Done()
 		}
-		return r.add(handler, o)
+		return r.add(handler, request)
 	case reflect.Func:
 		// 传入的是函数指针,暗示非阻塞调用
 		// 函数原型1:
@@ -102,13 +102,13 @@ func (r *_RpcRouter) Register(rsp interface{}, o *arpc.RegisterOptions) error {
 				}
 				in := []reflect.Value{msg}
 				v.Call(in)
-				if o.Future != nil {
-					return o.Future.Done()
+				if future != nil {
+					return future.Done()
 				}
 
 				return nil
 			}
-			return r.add(handler, o)
+			return r.add(handler, request)
 		case 2:
 			if !arpc.IsContext(t.In(0)) {
 				return ErrInvalidHandler
@@ -127,14 +127,14 @@ func (r *_RpcRouter) Register(rsp interface{}, o *arpc.RegisterOptions) error {
 
 				in := []reflect.Value{reflect.ValueOf(ctx), msg}
 				v.Call(in)
-				if o.Future != nil {
-					return o.Future.Done()
+				if future != nil {
+					return future.Done()
 				}
 
 				return nil
 			}
 
-			return r.add(handler, o)
+			return r.add(handler, request)
 		default:
 			return ErrInvalidHandler
 		}
@@ -144,21 +144,17 @@ func (r *_RpcRouter) Register(rsp interface{}, o *arpc.RegisterOptions) error {
 	}
 }
 
-func (r *_RpcRouter) add(handler arpc.Handler, o *arpc.RegisterOptions) error {
+func (r *_RpcRouter) add(handler arpc.Handler, req arpc.Packet) error {
 	var err error
 	r.mux.Lock()
-	expired := time.Now().Add(o.TTL).UnixNano() / int64(time.Millisecond)
+	expired := time.Now().Add(req.TTL()).UnixNano() / int64(time.Millisecond)
 	info := &_RpcInfo{
 		Handler:  handler,
-		SeqID:    o.SeqID,
+		Request:  req,
 		Expire:   expired,
-		Future:   o.Future,
-		RetryCB:  o.RetryCB,
-		RetryMax: o.RetryMax,
 		RetryNum: 0,
-		Req:      o.Req,
 	}
-	r.infos[o.SeqID] = info
+	r.infos[req.SeqID()] = info
 	switch r.status {
 	case statusStop:
 		err = ErrHasStopped

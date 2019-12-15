@@ -8,110 +8,69 @@ import (
 )
 
 func TestSelector(t *testing.T) {
-	go runServer(t)
-	time.Sleep(time.Second)
-	go runClient(t)
-	time.Sleep(time.Second * 20)
-}
-
-func runServer(t *testing.T) {
-	log.Printf("start server\n")
+	quit := false
 	selector, err := New()
 	if err != nil {
-		t.Log(err)
-		return
+		t.Fatal(err)
 	}
 
-	l, err := net.Listen("tcp", ":6789")
-	if err != nil {
-		t.Log(err)
-		return
-	}
-
+	// start poller
 	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				break
-			}
+		for !quit {
+			err := selector.Wait(func(ev *Event) {
+				if ev.Readable() {
+					// 粘包处理，写监听处理，socket关闭处理
+					data := make([]byte, 128)
+					n, err := ev.Read(data)
+					if err != nil {
+						return
+					}
 
-			if sk, err := selector.Add(conn, OP_READ, nil); err != nil {
-				conn.Close()
-				t.Log(err)
-				break
-			} else {
-				log.Printf("new connection:%+v\n", sk.FD())
+					str := string(data[:n])
+					log.Printf("%+v", str)
+					if str == "ping" {
+						_, _ = ev.Write([]byte("pong"))
+					} else {
+						_, _ = ev.Write([]byte("ping"))
+					}
+				}
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 	}()
 
-	for {
-		//log.Printf("wait server select\n")
-		keys, err := selector.Select()
-		if err != nil {
-			t.Log(err)
-			break
-		}
-
-		for _, sk := range keys {
-			data := make([]byte, 1024)
-			n, err := sk.Read(data)
+	// start server
+	l, err := net.Listen("tcp", ":6789")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for !quit {
+			conn, err := l.Accept()
 			if err != nil {
-				log.Printf("fail:%+v\n", err)
-				continue
+				break
 			}
-
-			log.Printf("data:%+s\n", data[:n])
-			if n, err := sk.Write([]byte("pong")); err != nil || n != 4 {
-				log.Printf("send err :%+v, %+v\n", err, n)
+			if err := selector.Add(conn); err != nil {
+				t.Fatal(err)
 			}
 		}
-	}
-}
+	}()
 
-func runClient(t *testing.T) {
-	log.Printf("start client")
-
-	selector, err := New()
+	// start client
+	client, err := net.Dial("tcp", "localhost:6789")
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
+	}
+	_ = selector.Add(client)
+	if _, err := client.Write([]byte("ping")); err != nil {
+		t.Fatal(err)
 	}
 
-	conn, err := net.Dial("tcp", "localhost:6789")
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("dial ok:%+v\n", conn.RemoteAddr().String())
-
-	selector.Add(conn, OP_READ, nil)
-
-	if n, err := conn.Write([]byte("ping")); err == nil {
-		log.Printf("send:%+v\n", n)
-	}
-
-	for {
-		//log.Printf("wait client select\n")
-		keys, err := selector.Select()
-		if err != nil {
-			break
-		}
-
-		for _, key := range keys {
-			switch {
-			case key.Readable():
-				bytes := make([]byte, 1024)
-				n, err := key.Read(bytes)
-				if err != nil {
-					log.Printf("read: fd=%+v, err=%+v\n", key.FD(), err)
-					continue
-				}
-				log.Printf("%s:%+v\n", bytes[:n], key.FD())
-				n, err = key.Write([]byte("ping"))
-				if err != nil || n != 4 {
-					log.Printf("write: fd=%+v, err=%+v, %+v\n", key.FD(), err, n)
-				}
-			}
-		}
-	}
+	time.Sleep(time.Millisecond * 200)
+	quit = true
+	_ = l.Close()
+	_ = client.Close()
+	_ = selector.Wakeup()
 }

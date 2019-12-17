@@ -6,19 +6,20 @@ import (
 	"time"
 
 	"github.com/jeckbjy/gsk/anet"
-	"github.com/jeckbjy/gsk/anet/tcp"
+	"github.com/jeckbjy/gsk/anet/nio"
 )
+
+var newTranFunc = nio.New
 
 func TestNet(t *testing.T) {
 	startServer()
 	startClient()
-	time.Sleep(time.Second * 1)
-	//waitExit()
+	time.Sleep(time.Second * 10)
 }
 
 func startServer() {
 	log.Printf("start server\n")
-	tran := tcp.New()
+	tran := newTranFunc()
 	tran.AddFilters(
 		&LogFilter{},
 		&FrameFilter{},
@@ -28,7 +29,7 @@ func startServer() {
 
 func startClient() {
 	log.Printf("start client\n")
-	tran := tcp.New()
+	tran := newTranFunc()
 	tran.AddFilters(
 		&LogFilter{},
 		&FrameFilter{},
@@ -40,15 +41,7 @@ func startClient() {
 		return
 	}
 
-	log.Printf("connect ok:%+v\n", conn)
+	log.Printf("connect ok:%+v\n", conn.RemoteAddr())
 
 	_ = conn.Send(&EchoMsg{Text: "ping"})
 }
-
-//func waitExit() {
-//	fmt.Printf("wait exit\n")
-//	sigs := make(chan os.Signal, 1)
-//	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-//	<-sigs
-//	log.Printf("exit")
-//}

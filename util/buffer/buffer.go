@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync"
 )
 
 var (
@@ -36,6 +37,12 @@ type Buffer struct {
 	node  *bnode // 当前pos对应的节点,pos=0时可能为空
 	off   int    // 相对当前node偏移
 	mark  int    // 任意位置标识,不做任何校验
+}
+
+// LockedBuffer,增加Mutex,但需要外部手动加锁和释放锁
+type LockedBuffer struct {
+	sync.Mutex
+	Buffer
 }
 
 func (b *Buffer) Eof() bool {
@@ -341,14 +348,14 @@ func (b *Buffer) Split() *Buffer {
 		r := New()
 		r.head = b.head
 		r.tail = n
-		r.nlen = nlen
+		r.leng = nlen
 		r.len = b.pos
 		r.pos = b.pos
 		r.node = n
 		r.off = len(n.data)
 
 		b.head = n.next
-		b.nlen -= nlen
+		b.leng -= nlen
 		b.len -= b.pos
 		b.pos = 0
 		b.node = b.head
@@ -366,7 +373,7 @@ func (b *Buffer) Split() *Buffer {
 
 // Concat 合并成一块内存
 func (b *Buffer) Concat() {
-	if b.nlen <= 1 {
+	if b.leng <= 1 {
 		return
 	}
 
@@ -394,6 +401,11 @@ func (b *Buffer) Visit(cb func([]byte) bool) {
 			}
 		}
 	}
+}
+
+func (b *Buffer) Iter() Iterator {
+	iter := Iterator{buff: b, prev: b.tail, next: b.head}
+	return iter
 }
 
 // check 检测一下当前游标是否有效,如果无效则移动到正确位置
@@ -427,6 +439,16 @@ func (b *Buffer) check() {
 	}
 }
 
+func (b *Buffer) remove(n *bnode) {
+	b.len -= len(n.data)
+	b.unlink(n)
+	if b.pos > b.len {
+		b.node = nil
+		b.pos = 0
+		b.off = 0
+	}
+}
+
 //////////////////////////////////////////////
 // buffer list
 //////////////////////////////////////////////
@@ -447,7 +469,7 @@ func (n *bnode) free() {
 type blist struct {
 	head *bnode // 链表头
 	tail *bnode // 链表尾
-	nlen int    // node length
+	leng int    // node length
 }
 
 func (l *blist) pushBack(data []byte) {
@@ -465,7 +487,7 @@ func (l *blist) pushBack(data []byte) {
 		l.tail = n
 	}
 
-	l.nlen++
+	l.leng++
 }
 
 func (l *blist) pushFront(data []byte) {
@@ -482,7 +504,7 @@ func (l *blist) pushFront(data []byte) {
 		l.tail = n
 	}
 
-	l.nlen++
+	l.leng++
 }
 
 func (l *blist) insertBack(p *bnode, data []byte) {
@@ -500,11 +522,11 @@ func (l *blist) insertBack(p *bnode, data []byte) {
 		l.tail = n
 	}
 
-	l.nlen++
+	l.leng++
 }
 
 // 删除节点
-func (l *blist) remove(n *bnode) {
+func (l *blist) unlink(n *bnode) {
 	if n.prev != nil {
 		n.prev.next = n.next
 	} else {
@@ -520,7 +542,7 @@ func (l *blist) remove(n *bnode) {
 	n.prev = nil
 	n.next = nil
 	n.data = nil
-	l.nlen--
+	l.leng--
 }
 
 // 释放所有节点
@@ -533,7 +555,7 @@ func (l *blist) free() {
 
 	l.head = nil
 	l.tail = nil
-	l.nlen = 0
+	l.leng = 0
 }
 
 // bnode pool

@@ -1,34 +1,37 @@
 package internal
 
-import "syscall"
-
 const maxEventNum = 1024
 
 const (
-	EventRead  = evRead
-	EventWrite = evWrite
-	EventError = evError
+	EventRead  = 0x01
+	EventWrite = 0x02
+	EventError = 0x08
 )
 
 type Event struct {
-	Fd     fd_t
-	Events int
+	poll   poller
+	fd     uintptr
+	events int
+}
+
+func (e *Event) Fd() uintptr {
+	return e.fd
+}
+
+func (e *Event) HasError() bool {
+	return e.events&EventError != 0
 }
 
 func (e *Event) Readable() bool {
-	return e.Events&EventRead != 0
+	return e.events&EventRead != 0
 }
 
 func (e *Event) Writable() bool {
-	return e.Events&EventWrite != 0
+	return e.events&EventWrite != 0
 }
 
-func (e *Event) Read(p []byte) (int, error) {
-	return syscall.Read(e.Fd, p)
-}
-
-func (e *Event) Write(p []byte) (int, error) {
-	return syscall.Write(e.Fd, p)
+func (e *Event) Delete() error {
+	return e.poll.Del(e.fd)
 }
 
 type Callback func(event *Event)
@@ -47,9 +50,10 @@ type poller interface {
 	Wait(cb Callback) error
 
 	// 注册fd,并监听读事件
-	Add(fd fd_t) error
+	// TODO:如何添加关联数据,可以更加高效的处理回调
+	Add(fd uintptr) error
 	// 注销fd,并删除读写事件
-	Del(fd fd_t) error
+	Del(fd uintptr) error
 	// 添加或删除写监听
-	ModifyWrite(fd fd_t, add bool) error
+	ModifyWrite(fd uintptr, add bool) error
 }

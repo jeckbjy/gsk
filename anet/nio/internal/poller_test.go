@@ -3,7 +3,6 @@ package internal
 import (
 	"log"
 	"net"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -18,10 +17,10 @@ func TestPoll(t *testing.T) {
 	go func() {
 		for {
 			err := poller.Wait(func(event *Event) {
-				if event.Events&EventRead != 0 {
+				if event.events&EventRead != 0 {
 					// 这里没有做粘包处理,假定都能立即读取和发送
 					data := make([]byte, 1024)
-					n, err := syscall.Read(event.Fd, data)
+					n, err := Read(event.fd, data)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -31,7 +30,7 @@ func TestPoll(t *testing.T) {
 					if str == "pong" {
 						result = "ping"
 					}
-					_, err1 := syscall.Write(event.Fd, []byte(result))
+					_, err1 := Write(event.fd, []byte(result))
 					if err1 != nil {
 						t.Fatal(err1)
 					}
@@ -55,12 +54,12 @@ func TestPoll(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fd, err := getFD(conn)
+			fd, err := GetFD(conn)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if err := syscall.SetNonblock(fd, true); err != nil {
+			if err := SetNonblock(fd); err != nil {
 				t.Fatal(err)
 			}
 
@@ -76,12 +75,12 @@ func TestPoll(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		fd, err := getFD(conn)
+		fd, err := GetFD(conn)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if err := syscall.SetNonblock(fd, true); err != nil {
+		if err := SetNonblock(fd); err != nil {
 			t.Fatal(err)
 		}
 		if err := poller.Add(fd); err != nil {

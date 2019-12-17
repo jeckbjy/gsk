@@ -21,7 +21,7 @@ func TestSelector(t *testing.T) {
 				if ev.Readable() {
 					// 粘包处理，写监听处理，socket关闭处理
 					data := make([]byte, 128)
-					n, err := ev.Read(data)
+					n, err := Read(ev.Fd(), data)
 					if err != nil {
 						return
 					}
@@ -29,9 +29,9 @@ func TestSelector(t *testing.T) {
 					str := string(data[:n])
 					log.Printf("%+v", str)
 					if str == "ping" {
-						_, _ = ev.Write([]byte("pong"))
+						_, _ = Write(ev.Fd(), []byte("pong"))
 					} else {
-						_, _ = ev.Write([]byte("ping"))
+						_, _ = Write(ev.Fd(), []byte("ping"))
 					}
 				}
 			})

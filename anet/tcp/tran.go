@@ -20,22 +20,56 @@ func (t *Tran) String() string {
 	return "tcp"
 }
 
+func (t *Tran) NewConn(client bool, tag string) anet.Conn {
+	return base.NewNetConn(t, client, tag)
+}
+
 func (t *Tran) Listen(addr string, opts ...anet.ListenOption) (anet.Listener, error) {
 	conf := anet.ListenOptions{}
 	conf.Init(opts...)
-	return base.DoListen(&conf, t, func() (net.Listener, error) {
-		return net.Listen("tcp", addr)
-	})
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			sock, err := l.Accept()
+			if err != nil {
+				return
+			}
+
+			conn := base.NewNetConn(t, false, conf.Tag)
+			_ = conn.Open(sock)
+		}
+	}()
+
+	return l, nil
 }
 
 func (t *Tran) Dial(addr string, opts ...anet.DialOption) (anet.Conn, error) {
 	conf := &anet.DialOptions{}
 	conf.Init(opts...)
-	return base.DoDial(conf, t, func() (net.Conn, error) {
-		if conf.Timeout != 0 {
-			return net.DialTimeout("tcp", addr, conf.Timeout)
-		} else {
-			return net.Dial("tcp", addr)
-		}
-	})
+
+	if conf.Conn == nil {
+		conf.Conn = base.NewNetConn(t, true, conf.Tag)
+	}
+
+	if conf.Blocking {
+		return t.doDial(conf, addr)
+	} else {
+		go t.doDial(conf, addr)
+		return conf.Conn, nil
+	}
+}
+
+func (t *Tran) doDial(conf *anet.DialOptions, addr string) (anet.Conn, error) {
+	conn := conf.Conn
+	sock, err := base.DialTCP(addr, conf.Timeout)
+	if err == nil {
+		err = conn.Open(sock)
+	}
+
+	conf.Call(conn, nil)
+	return conn, nil
 }

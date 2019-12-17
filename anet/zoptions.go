@@ -26,6 +26,12 @@ func (o *DialOptions) Init(opts ...DialOption) {
 	}
 }
 
+func (c *DialOptions) Call(conn Conn, err error) {
+	if c.Callback != nil {
+		c.Callback(conn, err)
+	}
+}
+
 type DialOption func(*DialOptions)
 type ListenOption func(*ListenOptions)
 

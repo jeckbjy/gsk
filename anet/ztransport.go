@@ -4,6 +4,7 @@ package anet
 import (
 	"errors"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	"github.com/jeckbjy/gsk/util/buffer"
@@ -24,6 +25,16 @@ type NewTranFunc func() Tran
 var (
 	ErrHasOpened = errors.New("conn has opened")
 	ErrHasClosed = errors.New("conn has closed")
+	//ErrNotDialer = errors.New("is not dialer")
+)
+
+type Status int
+
+const (
+	CONNECTING = Status(iota)
+	OPEN
+	CLOSING
+	CLOSED
 )
 
 // Tran 创建Conn,可以是tcp,websocket等协议
@@ -39,15 +50,6 @@ type Tran interface {
 	Close() error
 }
 
-type Status int
-
-const (
-	CONNECTING = Status(iota)
-	OPEN
-	CLOSING
-	CLOSED
-)
-
 // Conn 异步收发消息
 type Conn interface {
 	Tran() Tran                      // Transport
@@ -57,12 +59,12 @@ type Conn interface {
 	Status() Status                  // 当前状态
 	IsActive() bool                  // 是否已经建立好连接
 	IsDial() bool                    // 是否通过Dial建立的连接
-	LocalAddr() net.Addr             // 本地地址
-	RemoteAddr() net.Addr            // 远程地址
-	Read() *buffer.Buffer            // 异步读缓存,非线程安全,通常在一个线程中解析消息,在分发到其他线程处理消息
+	LocalAddr() string               // 本地地址
+	RemoteAddr() string              // 远程地址
+	ReadLocker() sync.Locker         // 读数据锁,通常都在读协程中处理,并不需要加锁
+	Read() *buffer.Buffer            // 异步读缓存,线程安全
 	Write(data *buffer.Buffer) error // 异步写数据,线程安全
 	Send(msg interface{}) error      // 异步发消息,会调用HandleWrite,没有连接成功时也可以发送,当连接成功后会自动发送缓存数据
-	Clear()                          // 清空buffer
 	Close() error                    // 调用后将不再接收任何读写操作,并等待所有发送完成后再安全关闭
 }
 

@@ -16,7 +16,7 @@ const (
 	EV_CLEAR     = syscall.EV_CLEAR
 )
 
-func newPoller() poller {
+func newPoller() Poller {
 	return &kpoller{}
 }
 
@@ -80,7 +80,7 @@ func (p *kpoller) Wait(cb Callback) error {
 
 		for i := 0; i < n; i++ {
 			kev := &p.events[i]
-			pev.fd = uintptr(kev.Ident)
+			pev.fd = FD(kev.Ident)
 
 			if kev.Flags&syscall.EV_ERROR != 0 {
 				pev.events |= EventError
@@ -98,14 +98,14 @@ func (p *kpoller) Wait(cb Callback) error {
 }
 
 // 添加并监听读事件,EV_CLEAR使用ET模式
-func (p *kpoller) Add(fd uintptr) error {
+func (p *kpoller) Add(fd FD) error {
 	events := [1]Kevent_t{{Ident: uint64(fd), Filter: EVFILT_READ, Flags: EV_ADD | EV_CLEAR}}
 	_, err := syscall.Kevent(p.kfd, events[:], nil, nil)
 	return err
 }
 
 // 删除读写监听事件
-func (p *kpoller) Del(fd uintptr) error {
+func (p *kpoller) Delete(fd FD) error {
 	// 删除不存在的EVFILT_WRITE是否会有问题?
 	events := [2]Kevent_t{
 		{Ident: uint64(fd), Filter: EVFILT_READ, Flags: EV_DELETE},
@@ -116,7 +116,7 @@ func (p *kpoller) Del(fd uintptr) error {
 }
 
 // 修改写监听
-func (p *kpoller) ModifyWrite(fd uintptr, add bool) error {
+func (p *kpoller) ModifyWrite(fd FD, add bool) error {
 	var flags uint16
 	if add {
 		flags = EV_ADD | EV_CLEAR

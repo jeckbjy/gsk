@@ -42,7 +42,13 @@ func (t *Tran) Close() error {
 		}
 	}
 
+	t.listeners = nil
+
 	return err
+}
+
+func (t *Tran) AddListener(l net.Listener) {
+	t.listeners = append(t.listeners, l)
 }
 
 func DialTCP(addr string, timeout time.Duration) (net.Conn, error) {

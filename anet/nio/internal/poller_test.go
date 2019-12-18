@@ -2,10 +2,42 @@ package internal
 
 import (
 	"log"
-	"net"
+	"syscall"
 	"testing"
 	"time"
 )
+
+func doAccept(p Poller, l *Listener, event *Event) {
+	conn, err := l.Accept()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("accept,%+v", conn.Fd())
+	if err := p.Add(conn.Fd()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func doRead(event *Event) {
+	// 这里没有做粘包处理,假定都能立即读取和发送
+	data := make([]byte, 1024)
+	n, err := syscall.Read(event.fd, data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	str := string(data[:n])
+	log.Print(str)
+	result := "pong"
+	if str == "pong" {
+		result = "ping"
+	}
+	_, err1 := syscall.Write(event.fd, []byte(result))
+	if err1 != nil {
+		log.Fatal(err1)
+	}
+}
 
 func TestPoll(t *testing.T) {
 	poller := newPoller()
@@ -13,26 +45,23 @@ func TestPoll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// start poller
+	// start server
+	listener, err := Listen("tcp", ":6789")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = poller.Add(listener.Fd())
+
+	// start Poller
 	go func() {
 		for {
 			err := poller.Wait(func(event *Event) {
 				if event.events&EventRead != 0 {
-					// 这里没有做粘包处理,假定都能立即读取和发送
-					data := make([]byte, 1024)
-					n, err := Read(event.fd, data)
-					if err != nil {
-						t.Fatal(err)
-					}
-					str := string(data[:n])
-					log.Print(str)
-					result := "pong"
-					if str == "pong" {
-						result = "ping"
-					}
-					_, err1 := Write(event.fd, []byte(result))
-					if err1 != nil {
-						t.Fatal(err1)
+					if event.Fd() == listener.Fd() {
+						doAccept(poller, listener, event)
+					} else {
+						doRead(event)
 					}
 				}
 			})
@@ -42,54 +71,18 @@ func TestPoll(t *testing.T) {
 		}
 	}()
 
-	// start server
-	go func() {
-		l, err := net.Listen("tcp", ":6789")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				t.Fatal(err)
-			}
-			fd, err := GetFD(conn)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if err := SetNonblock(fd); err != nil {
-				t.Fatal(err)
-			}
-
-			if err := poller.Add(fd); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}()
-
 	// start client
-	go func() {
-		conn, err := net.Dial("tcp", "localhost:6789")
-		if err != nil {
-			panic(err)
-		}
-		fd, err := GetFD(conn)
-		if err != nil {
-			t.Fatal(err)
-		}
+	conn, err := Dial("tcp", "localhost:6789")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if err := SetNonblock(fd); err != nil {
-			t.Fatal(err)
-		}
-		if err := poller.Add(fd); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := conn.Write([]byte("ping")); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	log.Printf("local %+v, remote %+v", conn.LocalAddr().String(), conn.RemoteAddr().String())
+
+	_ = poller.Add(conn.Fd())
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Second * 1)
 }

@@ -4,4 +4,8 @@ package internal
 
 import "syscall"
 
-type fd_t = syscall.Handle
+type FD = syscall.Handle
+
+func SetReuseAddr(fd FD) {
+	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+}

@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func newPoller() poller {
+func newPoller() Poller {
 	return &epoller{}
 }
 
@@ -83,13 +83,13 @@ func (p *epoller) Wait(cb Callback) error {
 
 		for i := 0; i < n; i++ {
 			ev := &p.events[i]
-			fd := fd_t(ev.Fd)
+			fd := FD(ev.Fd)
 
 			if fd == p.wfd {
 				continue
 			}
 
-			pev.fd = uintptr(fd)
+			pev.fd = fd
 			pev.events = 0
 
 			// https://stackoverflow.com/questions/24119072/how-to-deal-with-epollerr-and-epollhup/29206631
@@ -110,16 +110,16 @@ func (p *epoller) Wait(cb Callback) error {
 	}
 }
 
-func (p *epoller) Add(fd uintptr) error {
+func (p *epoller) Add(fd FD) error {
 	ev := &syscall.EpollEvent{Events: syscall.EPOLLIN | syscall.EPOLLET, Fd: int32(fd)}
-	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_ADD, int(fd), ev)
+	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_ADD, fd, ev)
 }
 
-func (p *epoller) Del(fd uintptr) error {
-	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_DEL, int(fd), nil)
+func (p *epoller) Delete(fd FD) error {
+	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_DEL, fd, nil)
 }
 
-func (p *epoller) ModifyWrite(fd uintptr, add bool) error {
+func (p *epoller) ModifyWrite(fd FD, add bool) error {
 	var events uint32
 	if add {
 		events = syscall.EPOLLIN | syscall.EPOLLOUT | syscall.EPOLLET
@@ -128,5 +128,5 @@ func (p *epoller) ModifyWrite(fd uintptr, add bool) error {
 	}
 
 	ev := &syscall.EpollEvent{Events: events, Fd: int32(fd)}
-	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_MOD, int(fd), ev)
+	return syscall.EpollCtl(p.efd, syscall.EPOLL_CTL_MOD, fd, ev)
 }

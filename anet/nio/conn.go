@@ -2,7 +2,7 @@ package nio
 
 import (
 	"errors"
-	"net"
+	"log"
 	"sync"
 
 	"github.com/jeckbjy/gsk/anet"
@@ -13,40 +13,42 @@ import (
 
 var errPeerClosed = errors.New("socket closed")
 
-func newConn(tran anet.Tran, client bool, tag string, selector *internal.Selector) *nioConn {
+func newConn(tran anet.Tran, client bool, tag string, poller internal.Poller) *nioConn {
 	conn := &nioConn{}
-	conn.Init(tran, client, tag, selector)
+	conn.Init(tran, client, tag, poller)
 	return conn
 }
 
 type nioConn struct {
 	base.Conn
-	mux      sync.Mutex
-	sock     net.Conn
-	fd       uintptr            // socket fd
-	selector *internal.Selector // nio selector
-	wbuf     *buffer.Buffer     // 写缓存
-	writing  bool               // 标识当前是否监听写事件
+	mux     sync.Mutex
+	sock    *internal.Conn
+	poller  internal.Poller // nio selector
+	wbuf    *buffer.Buffer  // 写缓存
+	writing bool            // 标识当前是否监听写事件
 }
 
-func (c *nioConn) Init(tran anet.Tran, client bool, tag string, selector *internal.Selector) {
+func (c *nioConn) Init(tran anet.Tran, client bool, tag string, poller internal.Poller) {
 	c.Conn.Init(tran, client, tag)
 	c.wbuf = buffer.New()
-	c.selector = selector
+	c.poller = poller
 }
 
-func (c *nioConn) Open(sock net.Conn) error {
-	fd, err := internal.GetFD(sock)
-	if err != nil {
-		return err
-	}
+func (c *nioConn) Open(sock *internal.Conn) error {
+	var err error
 	c.mux.Lock()
 	if c.sock == nil {
-		c.sock = sock
-		c.fd = fd
-		c.writing = false
-		c.SetAddr(sock.LocalAddr().String(), sock.RemoteAddr().String())
-		c.SetStatus(anet.OPEN)
+		err = c.poller.Add(sock.Fd())
+		if err == nil {
+			gLoop.add(sock.Fd(), c)
+			c.sock = sock
+			c.writing = false
+			c.SetAddr(sock.LocalAddr().String(), sock.RemoteAddr().String())
+			c.SetStatus(anet.OPEN)
+			if !c.wbuf.Empty() {
+				_ = c.doWrite()
+			}
+		}
 	} else {
 		err = anet.ErrHasOpened
 	}
@@ -98,7 +100,6 @@ func (c *nioConn) Write(data *buffer.Buffer) error {
 				c.doClose()
 			}
 		} else {
-			//log.Printf("append buffer, %+v, %+v", c.wbuf.Len(), c.wbuf.String())
 			c.wbuf.AppendBuffer(data)
 		}
 	default:
@@ -112,17 +113,17 @@ func (c *nioConn) Write(data *buffer.Buffer) error {
 func (c *nioConn) modifyWrite(writing bool) {
 	if c.writing != writing {
 		c.writing = writing
-		_ = c.selector.ModifyWrite(c.fd, writing)
+		_ = c.poller.ModifyWrite(c.sock.Fd(), writing)
 	}
 }
 
 // 发送则要全部发送完,直到不能发送为止
 func (c *nioConn) doWrite() error {
+	log.Printf("doWrite")
 	iter := c.wbuf.Iter()
 	for iter.Next() {
 		data := iter.Data()
-		n, err := internal.Write(c.fd, data)
-
+		n, err := c.sock.Write(data)
 		if n < len(data) {
 			if n == -1 && err != internal.EAGAIN {
 				// 发生错误
@@ -154,9 +155,10 @@ func (c *nioConn) doRead() error {
 	rmux.Lock()
 	for {
 		data := make([]byte, 1024)
-		n, err := internal.Read(c.fd, data)
+		n, err := c.sock.Read(data)
 		if n < 0 {
 			if err != internal.EAGAIN {
+				log.Printf("read, %+v,%+v", n, err)
 				result = err
 			}
 			break
@@ -182,17 +184,15 @@ func (c *nioConn) doRead() error {
 func (c *nioConn) doClose() {
 	status := c.Status()
 	if status == anet.CLOSED {
-		c.mux.Unlock()
 		return
 	}
 
 	c.wbuf.Clear()
 	if c.sock != nil {
-		c.Tran().(*nioTran).delConn(c.fd)
-		_ = c.selector.Delete(c.fd)
+		gLoop.remove(c.sock.Fd())
+		_ = c.poller.Delete(c.sock.Fd())
 		_ = c.sock.Close()
 		c.sock = nil
-		c.fd = 0
 	}
 }
 

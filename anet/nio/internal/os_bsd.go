@@ -2,4 +2,10 @@
 
 package internal
 
-type fd_t = int
+import "syscall"
+
+type FD = int
+
+func SetReuseAddr(fd FD) {
+	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+}

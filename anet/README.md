@@ -3,6 +3,7 @@
 - nio使用epoll,kqueue替代goroutine,减少内存使用
 
 # 其他参考库
-- [easygo]()
+- [easygo](https://github.com/mailru/easygo)
 - [gev](https://github.com/Allenxuxu/gev)
 - [websocket](https://www.freecodecamp.org/news/million-websockets-and-go-cc58418460bb/)
+- [goselect](https://github.com/creack/goselect)

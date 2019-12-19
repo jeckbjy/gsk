@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/jeckbjy/gsk/anet"
-	"github.com/jeckbjy/gsk/anet/nio"
+	"github.com/jeckbjy/gsk/anet/tcp"
 )
 
-var newTranFunc = nio.New
+var newTranFunc = tcp.New
 
 func TestNet(t *testing.T) {
 	listener := startServer()

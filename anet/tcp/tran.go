@@ -64,7 +64,7 @@ func (t *Tran) Dial(addr string, opts ...anet.DialOption) (anet.Conn, error) {
 }
 
 func (t *Tran) doDial(conf *anet.DialOptions, addr string) (anet.Conn, error) {
-	conn := conf.Conn
+	conn := conf.Conn.(*base.NetConn)
 	sock, err := base.DialTCP(addr, conf.Timeout)
 	if err == nil {
 		err = conn.Open(sock)

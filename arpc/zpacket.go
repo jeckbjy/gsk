@@ -16,18 +16,18 @@ const (
 type HeadFlag uint
 
 const (
-	HFAck         HeadFlag = 0
-	HFStatus               = 1
-	HFContentType          = 2
-	HFCommand              = 3
-	HFSeqID                = 4
-	HFMsgID                = 5
-	HFName                 = 6
-	HFMethod               = 7
-	HFService              = 8
-	HFHeadMap              = 9
-	HFExtra                = 10
-	HFMax                  = 15
+	HFAck         HeadFlag = 0  // 标识是否是消息应答,bool
+	HFStatus               = 1  // 返回状态信息,空表示OK,string
+	HFContentType          = 2  // 编码协议,int
+	HFCommand              = 3  // 服务器内部编码协议,int
+	HFSeqID                = 4  // RPC唯一ID,string,改用uint64?
+	HFMsgID                = 5  // 静态唯一消息ID
+	HFName                 = 6  // 消息名,string
+	HFMethod               = 7  // 调用方法名,string
+	HFService              = 8  // 调用服务名,string,和method合并成1个值?
+	HFHeadMap              = 9  // 自定义消息头,map[string]string
+	HFExtra                = 10 // 扩展字段,key<16
+	HFMax                  = 15 // 最大可用位数
 )
 
 // 预定义extra枚举,外部可以自行定义
@@ -59,7 +59,7 @@ type NewPacket func() Packet
 //  body需要是个指针类型
 //
 // Ack:是否是应答消息
-// Status类似http的错误码,0表示OK
+// Status:错误信息,status line格式,例如 "200 OK"
 // ContentType使用枚举形式,默认protobuf和json
 // Command:系统内控制命令,通常为0,表示消息通信,其他可用于HealthCheck等系统内预定义的命令
 // SeqID:唯一序列号,用于RPC调用,全局唯一
@@ -78,8 +78,9 @@ type Packet interface {
 	Reset()
 	IsAck() bool
 	SetAck(ack bool)
-	Status() uint
-	SetStatus(status uint)
+	Status() string
+	SetStatus(status string)
+	SetCodeStatus(code int, info string)
 	ContentType() int
 	SetContentType(ct int)
 	Command() CommandType

@@ -2,6 +2,7 @@ package packet
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jeckbjy/gsk/arpc"
@@ -17,7 +18,7 @@ type Packet struct {
 	contentType uint
 	command     uint
 	ack         bool
-	status      uint
+	status      string
 	seqID       string
 	msgID       uint16
 	name        string
@@ -47,12 +48,16 @@ func (p *Packet) SetAck(ack bool) {
 	p.ack = ack
 }
 
-func (p *Packet) Status() uint {
+func (p *Packet) Status() string {
 	return p.status
 }
 
-func (p *Packet) SetStatus(status uint) {
+func (p *Packet) SetStatus(status string) {
 	p.status = status
+}
+
+func (p *Packet) SetCodeStatus(code int, info string) {
+	p.status = fmt.Sprintf("%d %s", code, info)
 }
 
 func (p *Packet) ContentType() int {
@@ -222,7 +227,7 @@ func (p *Packet) Encode() error {
 	w := Writer{}
 	w.Init()
 	w.WriteBool(p.ack, 1<<arpc.HFAck)
-	w.WriteUint(p.status, 1<<arpc.HFStatus)
+	w.WriteString(p.status, 1<<arpc.HFStatus)
 	w.WriteUint(p.contentType, 1<<arpc.HFContentType)
 	w.WriteUint(p.command, 1<<arpc.HFCommand)
 	w.WriteString(p.seqID, 1<<arpc.HFSeqID)
@@ -267,7 +272,7 @@ func (p *Packet) Decode() (err error) {
 
 	// decode head
 	r.ReadBool(&p.ack, 1<<arpc.HFAck)
-	if err := r.ReadUint(&p.status, 1<<arpc.HFStatus); err != nil {
+	if err := r.ReadString(&p.status, 1<<arpc.HFStatus); err != nil {
 		return err
 	}
 	if err := r.ReadUint(&p.contentType, 1<<arpc.HFContentType); err != nil {

@@ -27,6 +27,8 @@ func TestEncode(t *testing.T) {
 	}
 
 	buf := pkg.Buffer()
+	str := buf.String()
+	t.Log(str)
 	_, _ = buf.Seek(0, io.SeekStart)
 
 	pkgd := New()

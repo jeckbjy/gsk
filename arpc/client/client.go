@@ -153,6 +153,7 @@ func (c *_Client) newRequest(req interface{}, o *arpc.CallOptions) arpc.Packet {
 				pkg.SetName(t.Name())
 			}
 		}
+		pkg.SetBody(req)
 
 		return pkg
 	}

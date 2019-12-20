@@ -29,8 +29,8 @@ func GetByType(t int) Codec {
 
 // 枚举定义常见的消息编码格式
 const (
-	Proto = iota
-	Json
+	Json = iota
+	Proto
 	Xml
 	Gob
 )

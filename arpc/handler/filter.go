@@ -128,15 +128,16 @@ func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 		// 外部已经系列化好了,比如广播消息,发送效率更高
 		buff = v
 	case arpc.Packet:
-		pcodec := codec.GetByType(v.ContentType())
-		if pcodec == nil {
+		// packet
+		encoding := codec.GetByType(v.ContentType())
+		if encoding == nil {
 			return errorx.ErrNotSupport
 		}
 
 		// 消息包,序列化数据到新buffer中
 		buff = buffer.New()
-		v.SetCodec(pcodec)
 		v.SetBuffer(buff)
+		v.SetCodec(encoding)
 		if err := v.Encode(); err != nil {
 			return err
 		}

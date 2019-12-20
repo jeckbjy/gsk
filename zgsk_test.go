@@ -44,11 +44,11 @@ func TestRPC(t *testing.T) {
 	}
 
 	// asynchronous call
-	//_ = srv.Call(name, &echoReq{Text: "async,hello"}, func(rsp *echoRsp) {
-	//	log.Printf("async rsp,%s", rsp.Text)
-	//})
+	_ = srv.Call(name, &echoReq{Text: "async,hello"}, func(rsp *echoRsp) {
+		log.Printf("async rsp,%s", rsp.Text)
+	})
 
 	t.Log("wait stop")
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 2)
 	t.Log("finish")
 }

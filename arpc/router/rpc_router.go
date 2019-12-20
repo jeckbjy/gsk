@@ -96,7 +96,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 				return ErrInvalidHandler
 			}
 			handler := func(ctx arpc.Context) error {
-				msg := reflect.New(p0)
+				msg := reflect.New(p0.Elem())
 				if err := ctx.Request().DecodeBody(msg.Interface()); err != nil {
 					return err
 				}
@@ -120,7 +120,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 			}
 
 			handler := func(ctx arpc.Context) error {
-				msg := reflect.New(t.In(1))
+				msg := reflect.New(p1.Elem())
 				if err := ctx.Response().DecodeBody(msg.Interface()); err != nil {
 					return err
 				}

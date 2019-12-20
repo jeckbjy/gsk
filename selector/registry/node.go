@@ -33,6 +33,8 @@ func (n *_Node) Conn(tran anet.Tran) (anet.Conn, error) {
 		if conn == nil && err == nil {
 			log.Printf("bad conn")
 		}
+	} else {
+		conn = n.conn
 	}
 	n.mux.Unlock()
 	return conn, err

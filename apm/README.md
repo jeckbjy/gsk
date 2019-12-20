@@ -34,3 +34,5 @@ Circuit Breakers Pattern
 - [CurrentMemory](https://golangcode.com/print-the-current-memory-usage/)
 - [monitoring](https://scene-si.org/2018/08/06/basic-monitoring-of-go-apps-with-the-runtime-package/)
 - [uber-go/ratelimit](https://www.cyhone.com/articles/analysis-of-uber-go-ratelimit/)
+- [boomer兼容Locust压力测试](https://github.com/myzhan/boomer)
+- [http压力测试](https://github.com/link1st/go-stress-testing)

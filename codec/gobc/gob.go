@@ -7,16 +7,16 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-func init() {
-	codec.Add(New())
-}
-
 // New create gob codec
 func New() codec.Codec {
 	return &Codec{}
 }
 
 type Codec struct {
+}
+
+func (*Codec) Type() int {
+	return codec.Gob
 }
 
 func (*Codec) Name() string {

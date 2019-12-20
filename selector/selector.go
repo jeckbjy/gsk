@@ -30,7 +30,7 @@ type Options struct {
 }
 
 func (o *Options) GetNext(nodes []Node) Next {
-	if len(nodes) == 0 {
+	if len(nodes) == 1 {
 		return First(nodes)
 	}
 

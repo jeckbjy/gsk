@@ -65,8 +65,12 @@ func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ..
 		o.TTL = arpc.DefaultCallTTL
 	}
 
+	autoWait := false
+
 	if o.Future == nil && reflect.TypeOf(rsp).Kind() != reflect.Func {
 		o.Future = NewFuture()
+		_ = o.Future.Add(1)
+		autoWait = true
 	}
 
 	next, err := c.getNext(service, &o)
@@ -96,7 +100,11 @@ func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ..
 	pkg.SetRetry(o.Retry)
 	pkg.SetCallInfo(info)
 
-	return c.sendMsg(next, pkg)
+	err = c.sendMsg(next, pkg)
+	if autoWait {
+		o.Future.Wait()
+	}
+	return err
 }
 
 func (c *_Client) sendMsg(next selector.Next, pkg arpc.Packet) error {
@@ -112,9 +120,9 @@ func (c *_Client) getConn(next selector.Next) (anet.Conn, error) {
 	node, err := next()
 	if err == nil {
 		return node.Conn(c.opts.Tran)
+	} else {
+		return nil, err
 	}
-
-	return nil, err
 }
 
 func (c *_Client) getNext(service string, opts *arpc.CallOptions) (selector.Next, error) {

@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"log"
 	"sync"
 
 	"github.com/jeckbjy/gsk/anet"
@@ -29,6 +30,9 @@ func (n *_Node) Conn(tran anet.Tran) (anet.Conn, error) {
 	if n.conn == nil {
 		conn, err = tran.Dial(n.Addr())
 		n.conn = conn
+		if conn == nil && err == nil {
+			log.Printf("bad conn")
+		}
 	}
 	n.mux.Unlock()
 	return conn, err

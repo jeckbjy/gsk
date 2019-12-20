@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/jeckbjy/gsk/arpc/frame"
+	"github.com/jeckbjy/gsk/frame"
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
@@ -49,5 +49,6 @@ func (f *Frame) Decode(b *buffer.Buffer) (*buffer.Buffer, error) {
 	b.Discard()
 	_, _ = b.Seek(int64(size), io.SeekStart)
 	d := b.Split()
+	_, _ = d.Seek(0, io.SeekStart)
 	return d, nil
 }

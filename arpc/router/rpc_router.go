@@ -75,10 +75,10 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 		}
 
 		handler := func(ctx arpc.Context) error {
-			if err := ctx.Response().DecodeBody(rsp); err != nil {
-				return err
-			}
-			return future.Done()
+			// 注意:这里需要调用Request
+			err := ctx.Request().DecodeBody(rsp)
+			future.Done()
+			return err
 		}
 		return r.add(handler, request)
 	case reflect.Func:
@@ -97,7 +97,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 			}
 			handler := func(ctx arpc.Context) error {
 				msg := reflect.New(p0)
-				if err := ctx.Response().DecodeBody(msg.Interface()); err != nil {
+				if err := ctx.Request().DecodeBody(msg.Interface()); err != nil {
 					return err
 				}
 				in := []reflect.Value{msg}

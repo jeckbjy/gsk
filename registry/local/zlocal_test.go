@@ -1,24 +1,20 @@
 package local
 
 import (
-	"log"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/jeckbjy/gsk/registry"
-
-	"github.com/jeckbjy/gsk/util/ssdp"
 )
 
 func TestRegister(t *testing.T) {
-	ssdp.Logger = log.New(os.Stderr, "[SSDP] ", log.LstdFlags)
-	t.Log("start register")
-	r := New(nil)
+	r := New()
+
 	err := r.Register(registry.NewService("test", "aaa", "127.0.0.1:9999", nil))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log("start watch")
 	if err := r.Watch([]string{"test"}, func(ev *registry.Event) {
 		t.Logf("new event,%+v,%+v,%+v", ev.Type, ev.Id, ev.Service)

@@ -7,33 +7,6 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-type ContentType int
-
-const (
-	CTProto ContentType = iota
-	CTJson
-	CTXml
-	CTGob
-	CTText
-)
-
-func (ct ContentType) String() string {
-	switch ct {
-	case CTProto:
-		return "proto"
-	case CTJson:
-		return "json"
-	case CTXml:
-		return "xml"
-	case CTGob:
-		return "gob"
-	case CTText:
-		return "text"
-	default:
-		return "unknown"
-	}
-}
-
 type CommandType int
 
 const (
@@ -107,8 +80,8 @@ type Packet interface {
 	SetAck(ack bool)
 	Status() uint
 	SetStatus(status uint)
-	ContentType() ContentType
-	SetContentType(ct ContentType)
+	ContentType() int
+	SetContentType(ct int)
 	Command() CommandType
 	SetCommand(CommandType)
 	SeqID() string

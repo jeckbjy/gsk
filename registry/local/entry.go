@@ -2,44 +2,65 @@ package local
 
 import (
 	"container/heap"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jeckbjy/gsk/registry"
 )
 
-func newEntry(srv *registry.Service, ttl int) *entry {
-	return &entry{srv: srv, ttl: int64(ttl)}
+func encodeID(id string, name string) string {
+	return fmt.Sprintf("%s.%s", id, name)
 }
 
-type entry struct {
-	srv    *registry.Service //
-	ttl    int64             //
-	expire int64             // 到期时间戳
+func decodeID(key string) (string, string) {
+	index := strings.LastIndexByte(key, '.')
+	if index == -1 {
+		return "", ""
+	}
+
+	return key[:index], key[index+1:]
 }
 
-func (e *entry) Reset() {
-	e.expire = time.Now().UnixNano()/int64(time.Millisecond) + e.ttl
+type localEntry struct {
+	Srv     *registry.Service `json:"srv"`
+	Ttl     int               `json:"ttl"`
+	Expired int64             `json:"expired"` // 过期时间戳
 }
 
-type eheap []*entry
+func (e *localEntry) Marshal() []byte {
+	data, _ := json.Marshal(e)
+	return data
+}
 
-func (h eheap) Len() int {
+func (e *localEntry) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, e)
+}
+
+func (e *localEntry) Reset() {
+	e.Expired = time.Now().UnixNano()/int64(time.Millisecond) + int64(e.Ttl)
+}
+
+type localHeap []*localEntry
+
+func (h localHeap) Len() int {
 	return len(h)
 }
 
-func (h eheap) Less(i, j int) bool {
-	return h[i].expire < h[j].expire
+func (h localHeap) Less(i, j int) bool {
+	return h[i].Expired < h[j].Expired
 }
 
-func (h eheap) Swap(i, j int) {
+func (h localHeap) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h *eheap) Push(x interface{}) {
-	*h = append(*h, x.(*entry))
+func (h *localHeap) Push(x interface{}) {
+	*h = append(*h, x.(*localEntry))
 }
 
-func (h *eheap) Pop() interface{} {
+func (h *localHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -47,16 +68,10 @@ func (h *eheap) Pop() interface{} {
 	return x
 }
 
-func (h *eheap) Add(srv *registry.Service, ttl int) {
-	e := newEntry(srv, ttl)
-	e.Reset()
-	heap.Push(h, e)
-}
-
 // 查询索引
-func (h eheap) Find(srvId string) int {
+func (h localHeap) Find(srvId string) int {
 	for i, e := range h {
-		if e.srv.Id == srvId {
+		if e.Srv.Id == srvId {
 			return i
 		}
 	}
@@ -64,16 +79,7 @@ func (h eheap) Find(srvId string) int {
 	return -1
 }
 
-// Update 更新heap位置
-func (h *eheap) Update(srvId string) {
-	if index := h.Find(srvId); index != -1 {
-		e := (*h)[index]
-		e.Reset()
-		heap.Fix(h, index)
-	}
-}
-
-func (h *eheap) Remove(srvId string) {
+func (h *localHeap) Remove(srvId string) {
 	if index := h.Find(srvId); index != -1 {
 		heap.Remove(h, index)
 	}

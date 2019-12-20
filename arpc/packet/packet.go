@@ -55,11 +55,11 @@ func (p *Packet) SetStatus(status uint) {
 	p.status = status
 }
 
-func (p *Packet) ContentType() arpc.ContentType {
-	return arpc.ContentType(p.contentType)
+func (p *Packet) ContentType() int {
+	return int(p.contentType)
 }
 
-func (p *Packet) SetContentType(ct arpc.ContentType) {
+func (p *Packet) SetContentType(ct int) {
 	p.contentType = uint(ct)
 }
 

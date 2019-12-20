@@ -25,20 +25,23 @@ func (s *_Selector) Name() string {
 }
 
 func (s *_Selector) Select(service string, opts *selector.Options) (selector.Next, error) {
+	var nodes []selector.Node
+
+	s.mux.Lock()
 	g, err := s.getGroup(service)
+	if err == nil {
+		if len(opts.Filters) > 0 {
+			// filter每次都会拷贝,比较低效,不如定制selector,使用cache,慎重使用
+			nodes = g.Filter(opts.Filters)
+		} else {
+			nodes = g.Shadow()
+		}
+	}
+	s.mux.Unlock()
+
 	if err != nil {
 		return nil, err
 	}
-
-	s.mux.Lock()
-	var nodes []selector.Node
-	if len(opts.Filters) > 0 {
-		// filter每次都会拷贝,比较低效,不如定制selector,使用cache,慎重使用
-		nodes = g.Filter(opts.Filters)
-	} else {
-		nodes = g.Shadow()
-	}
-	s.mux.Unlock()
 
 	if len(nodes) == 0 {
 		return nil, errorx.ErrNotAvailable
@@ -48,15 +51,12 @@ func (s *_Selector) Select(service string, opts *selector.Options) (selector.Nex
 }
 
 func (s *_Selector) getGroup(service string) (*_Group, error) {
-	s.mux.Lock()
 	if g, ok := s.groups[service]; ok {
-		s.mux.Unlock()
 		return g, nil
 	}
 
 	services, err := s.reg.Query(service, nil)
 	if err != nil {
-		s.mux.Unlock()
 		return nil, err
 	}
 
@@ -65,7 +65,6 @@ func (s *_Selector) getGroup(service string) (*_Group, error) {
 	for _, srv := range services {
 		s.upsert(srv)
 	}
-	s.mux.Unlock()
 
 	if err := s.reg.Watch([]string{service}, s.onEvent); err != nil {
 		return nil, err

@@ -5,11 +5,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/jeckbjy/gsk/util/idgen/xid"
-
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/registry"
 	"github.com/jeckbjy/gsk/util/addr"
+	"github.com/jeckbjy/gsk/util/idgen/xid"
 )
 
 func New(opts ...arpc.Option) arpc.Server {

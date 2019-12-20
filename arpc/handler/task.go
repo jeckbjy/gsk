@@ -4,7 +4,7 @@ import "github.com/jeckbjy/gsk/arpc"
 
 func invoke(ctx arpc.Context, handler arpc.Handler, middleware []arpc.Middleware) error {
 	h := handler
-	for i := len(middleware); i >= 0; i-- {
+	for i := len(middleware) - 1; i >= 0; i-- {
 		h = middleware[i](h)
 	}
 

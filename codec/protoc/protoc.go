@@ -9,10 +9,6 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-func init() {
-	codec.Add(New())
-}
-
 var ErrNotMessage = errors.New("not pb message")
 
 func New() codec.Codec {
@@ -20,6 +16,10 @@ func New() codec.Codec {
 }
 
 type Codec struct {
+}
+
+func (*Codec) Type() int {
+	return codec.Proto
 }
 
 func (*Codec) Name() string {

@@ -17,6 +17,10 @@ type Service struct {
 
 /// 检测Service是否完全满足filter条件
 func (s *Service) Match(filters map[string]string) bool {
+	if len(filters) == 0 {
+		return true
+	}
+
 	if len(s.Tags) < len(filters) {
 		return false
 	}

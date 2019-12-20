@@ -2,6 +2,7 @@ package gsk
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -84,6 +85,8 @@ func (s *service) Run() error {
 		alog.Error(err)
 		return err
 	}
+
+	log.Printf("service run")
 
 	// wait
 	ch := make(chan os.Signal, 1)

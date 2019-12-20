@@ -16,7 +16,7 @@ func SetDefault(d Registry) {
 // Register:注册服务,底层会保持KeepAlive
 // Unregister:根据服务ID注销服务
 // Query:根据服务名查询服务,name空则表示全部,filter多个key表示且的关系
-// Watch:监听服务,nil则监听全部,可同时监听多个服务,watch底层不会获取历史信息,需要主动Query一次
+// Watch:监听服务,nil则监听全部,可同时监听多个服务,watch底层不会获取历史信息,需要主动Query一次,同一个服务有可能被多次通知,上层需要排重
 // Close:会自动Unregister所有服务,并关闭所有Watcher
 type Registry interface {
 	Name() string

@@ -1,11 +1,11 @@
-package fixed16
+package len32
 
 import (
 	"encoding/binary"
 	"io"
 	"math"
 
-	"github.com/jeckbjy/gsk/arpc/frame"
+	"github.com/jeckbjy/gsk/frame"
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
@@ -21,28 +21,28 @@ func (f *Frame) SetLimit(limit int) {
 	f.limit = limit
 }
 
-func (f *Frame) Name() string {
-	return "fixed16"
+func (*Frame) Name() string {
+	return "fixed32"
 }
 
-func (f *Frame) Encode(b *buffer.Buffer) error {
-	if b.Len() > math.MaxUint16 {
+func (*Frame) Encode(b *buffer.Buffer) error {
+	if b.Len() > math.MaxUint32 {
 		return frame.ErrOverflow
 	}
 
-	data := make([]byte, 2)
-	binary.LittleEndian.PutUint16(data, uint16(b.Len()))
+	data := make([]byte, 4)
+	binary.LittleEndian.PutUint32(data, uint32(b.Len()))
 	b.Prepend(data)
 	return nil
 }
 
 func (f *Frame) Decode(b *buffer.Buffer) (*buffer.Buffer, error) {
-	data := [2]byte{}
-	if n, _ := b.Read(data[:]); n != 2 {
+	data := [4]byte{}
+	if n, _ := b.Read(data[:]); n != 4 {
 		return nil, frame.ErrIncomplete
 	}
 
-	size := binary.LittleEndian.Uint16(data[:])
+	size := binary.LittleEndian.Uint32(data[:])
 	if b.Len()-b.Pos() < int(size) {
 		return nil, frame.ErrIncomplete
 	}
@@ -55,5 +55,6 @@ func (f *Frame) Decode(b *buffer.Buffer) (*buffer.Buffer, error) {
 	b.Discard()
 	_, _ = b.Seek(int64(size), io.SeekStart)
 	d := b.Split()
+	_, _ = d.Seek(0, io.SeekStart)
 	return d, nil
 }

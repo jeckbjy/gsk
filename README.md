@@ -55,6 +55,7 @@ git clone https://github.com/golang/net.git
 - [smudge](https://github.com/clockworksoul/smudge)
 - [mergo](https://github.com/imdario/mergo)
 - [base58](https://github.com/mr-tron/base58)
+- [fsnotify](https://github.com/fsnotify/fsnotify)
 
 ## 其他资料
 - [Functional Options Pattern in Go](https://halls-of-valhalla.org/beta/articles/functional-options-pattern-in-go,54/)

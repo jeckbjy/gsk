@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"errors"
 	"net"
 
 	"github.com/jeckbjy/gsk/anet"
@@ -59,6 +60,9 @@ func (t *Tran) Dial(addr string, opts ...anet.DialOption) (anet.Conn, error) {
 		return t.doDial(conf, addr)
 	} else {
 		go t.doDial(conf, addr)
+		if conf.Conn == nil {
+			return nil, errors.New("create conn fail")
+		}
 		return conf.Conn, nil
 	}
 }

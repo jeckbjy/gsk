@@ -7,14 +7,10 @@ import (
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/anet/base"
 	"github.com/jeckbjy/gsk/arpc"
-	"github.com/jeckbjy/gsk/arpc/frame"
 	"github.com/jeckbjy/gsk/arpc/packet"
 	"github.com/jeckbjy/gsk/codec"
-	"github.com/jeckbjy/gsk/codec/gobc"
-	"github.com/jeckbjy/gsk/codec/jsonc"
-	"github.com/jeckbjy/gsk/codec/protoc"
-	"github.com/jeckbjy/gsk/codec/xmlc"
 	"github.com/jeckbjy/gsk/exec"
+	"github.com/jeckbjy/gsk/frame"
 	"github.com/jeckbjy/gsk/util/buffer"
 	"github.com/jeckbjy/gsk/util/errorx"
 )
@@ -26,6 +22,9 @@ func NewFilter(args ...interface{}) anet.Filter {
 		creator: packet.New,
 		router:  arpc.DefaultRouter(),
 		exec:    exec.Default(),
+	}
+	filter.pool.New = func() interface{} {
+		return &Task{}
 	}
 
 	for _, a := range args {
@@ -67,7 +66,7 @@ func (f *Filter) Name() string {
 
 func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 	buff, ok := ctx.Data().(*buffer.Buffer)
-	if ok {
+	if !ok {
 		ctx.Abort()
 		return nil
 	}
@@ -84,6 +83,7 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 
 	// parse request packet
 	req := f.creator()
+	req.SetBuffer(data)
 	if err := req.Decode(); err != nil {
 		return err
 	}
@@ -93,12 +93,11 @@ func (f *Filter) HandleRead(ctx anet.FilterCtx) error {
 		return err
 	}
 
-	pcodec := getCodec(req.ContentType())
+	pcodec := codec.GetByType(req.ContentType())
 	if pcodec == nil {
 		return errorx.ErrNotSupport
 	}
 
-	req.SetBuffer(data)
 	req.SetCodec(pcodec)
 
 	// create response packet
@@ -129,7 +128,7 @@ func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 		// 外部已经系列化好了,比如广播消息,发送效率更高
 		buff = v
 	case arpc.Packet:
-		pcodec := getCodec(v.ContentType())
+		pcodec := codec.GetByType(v.ContentType())
 		if pcodec == nil {
 			return errorx.ErrNotSupport
 		}
@@ -159,20 +158,4 @@ func (f *Filter) HandleWrite(ctx anet.FilterCtx) error {
 	// 准备发送消息
 	ctx.SetData(buff)
 	return nil
-}
-
-// 获取codec
-func getCodec(ct arpc.ContentType) codec.Codec {
-	switch ct {
-	case arpc.CTProto:
-		return protoc.New()
-	case arpc.CTJson:
-		return jsonc.New()
-	case arpc.CTXml:
-		return xmlc.New()
-	case arpc.CTGob:
-		return gobc.New()
-	default:
-		return nil
-	}
 }

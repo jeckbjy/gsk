@@ -2,6 +2,7 @@ package gsk
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -21,27 +22,33 @@ func TestRPC(t *testing.T) {
 	srv := New(name)
 	// register callback
 	if err := srv.Register(func(ctx arpc.Context, req *echoReq, rsp *echoRsp) error {
-		t.Logf("recv msg, %+v", req.Text)
+		log.Printf("recv msg, %+v", req.Text)
 		rsp.Text = fmt.Sprintf("%s world", req.Text)
 		return nil
 	}); err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	go srv.Run()
 
-	time.Sleep(time.Millisecond * 500)
+	log.Printf("sleep for server start")
+	time.Sleep(time.Second)
+	log.Printf("try call")
 
 	// synchronous call
 	rsp := &echoRsp{}
-	_ = srv.Call(name, &echoReq{Text: "sync,hello"}, rsp)
-	t.Log(rsp.Text)
+	if err := srv.Call(name, &echoReq{Text: "sync,hello"}, rsp); err != nil {
+		t.Fatal(err)
+	} else {
+		log.Printf("sync rsp,%s", rsp.Text)
+	}
 
 	// asynchronous call
-	_ = srv.Call(name, &echoReq{Text: "async,hello"}, func(rsp *echoRsp) {
-		t.Log(rsp.Text)
-	})
+	//_ = srv.Call(name, &echoReq{Text: "async,hello"}, func(rsp *echoRsp) {
+	//	log.Printf("async rsp,%s", rsp.Text)
+	//})
 
 	t.Log("wait stop")
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 10)
+	t.Log("finish")
 }

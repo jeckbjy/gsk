@@ -13,6 +13,7 @@ var (
 	ErrHasStopped    = errors.New("has stopped")
 	ErrHasRegistered = errors.New("has registered")
 	ErrInvalidId     = errors.New("invalid id")
+	ErrInvalidParam  = errors.New("invalid param")
 	ErrNoConfig      = errors.New("no config")
 )
 

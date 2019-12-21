@@ -17,6 +17,7 @@ type _MsgInfo struct {
 	Method  string
 }
 
+// TODO:response的处理还有点凌乱
 type _MsgRouter struct {
 	mux     sync.RWMutex
 	ids     []*_MsgInfo
@@ -81,7 +82,7 @@ func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
 		}
 		handler = func(ctx arpc.Context) error {
 			msg := reflect.New(t.In(1).Elem())
-			if err := ctx.Request().DecodeBody(msg); err != nil {
+			if err := ctx.Message().DecodeBody(msg); err != nil {
 				return err
 			}
 			in := []reflect.Value{reflect.ValueOf(ctx), msg}
@@ -94,14 +95,22 @@ func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
 		}
 		handler = func(ctx arpc.Context) error {
 			msg := reflect.New(t.In(1).Elem())
-			if err := ctx.Request().DecodeBody(msg); err != nil {
+			if err := ctx.Message().DecodeBody(msg); err != nil {
 				return err
 			}
 			rsp := reflect.New(t.In(2))
-			ctx.Response().SetBody(rsp)
+
+			request := ctx.Message()
+			reply := ctx.NewPacket()
+			reply.SetSeqID(request.SeqID())
+			reply.SetBody(rsp)
 			in := []reflect.Value{reflect.ValueOf(ctx), msg, rsp}
 			out := v.Call(in)
-			return out[0].Interface().(error)
+			err := out[0].Interface().(error)
+			if err != nil {
+				reply.SetStatus(err.Error())
+			}
+			return ctx.Send(reply)
 		}
 	}
 

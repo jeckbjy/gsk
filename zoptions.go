@@ -3,10 +3,13 @@ package gsk
 import (
 	"context"
 
+	"github.com/jeckbjy/gsk/arpc/filter/log"
+
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/arpc/client"
-	"github.com/jeckbjy/gsk/arpc/handler"
+	"github.com/jeckbjy/gsk/arpc/filter/fexec"
+	"github.com/jeckbjy/gsk/arpc/filter/fframe"
 	"github.com/jeckbjy/gsk/arpc/server"
 	"github.com/jeckbjy/gsk/broker"
 	"github.com/jeckbjy/gsk/exec"
@@ -29,7 +32,12 @@ func newOptions(name string, opts ...Option) *Options {
 	regi := registry.Default()
 	tran := anet.Default()()
 	if len(o.Filters) == 0 {
-		tran.AddFilters(handler.NewFilter(o.Middleware, o.Exec, o.Router))
+		ef := fexec.New(
+			fexec.Router(o.Router),
+			fexec.Executor(o.Exec),
+			fexec.Middlewares(o.Middleware),
+		)
+		tran.AddFilters(fframe.New(), log.New(), ef)
 	} else {
 		tran.AddFilters(o.Filters...)
 	}

@@ -16,7 +16,7 @@ func New(max int) exec.Executor {
 	return &executor{max: int32(max), quit: false}
 }
 
-// 线程数不会超过max
+// 将task投递到多个线程中执行,执行顺序不确定
 type executor struct {
 	tasks base.Queue
 	mux   sync.Mutex
@@ -35,7 +35,7 @@ func (e *executor) Wait() {
 	e.wg.Wait()
 }
 
-func (e *executor) Handle(task exec.Task) error {
+func (e *executor) Post(task exec.Task) error {
 	if e.quit {
 		return exec.ErrAlreadyStop
 	}

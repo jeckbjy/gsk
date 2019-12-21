@@ -49,6 +49,7 @@ func TestRPC(t *testing.T) {
 	})
 
 	t.Log("wait stop")
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 5)
+	srv.Exit()
 	t.Log("finish")
 }

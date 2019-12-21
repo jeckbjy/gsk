@@ -13,7 +13,7 @@ func New() exec.Executor {
 	return e
 }
 
-// 单线程
+// 将task投递到另外一个单独线程中执行
 type executor struct {
 	worker *base.Worker
 	wg     sync.WaitGroup
@@ -33,7 +33,7 @@ func (e *executor) Wait() {
 	e.wg.Wait()
 }
 
-func (e *executor) Handle(task exec.Task) error {
+func (e *executor) Post(task exec.Task) error {
 	e.worker.Post(task)
 	return nil
 }

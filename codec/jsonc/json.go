@@ -7,6 +7,8 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
+const Name = "json"
+
 // New create json codec
 func New() codec.Codec {
 	return &Codec{}
@@ -20,7 +22,7 @@ func (*Codec) Type() int {
 }
 
 func (*Codec) Name() string {
-	return "json"
+	return Name
 }
 
 func (*Codec) Encode(b *buffer.Buffer, msg interface{}) error {

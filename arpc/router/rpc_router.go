@@ -76,7 +76,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 
 		handler := func(ctx arpc.Context) error {
 			// 注意:这里需要调用Request
-			err := ctx.Request().DecodeBody(rsp)
+			err := ctx.Message().DecodeBody(rsp)
 			future.Done()
 			return err
 		}
@@ -97,7 +97,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 			}
 			handler := func(ctx arpc.Context) error {
 				msg := reflect.New(p0.Elem())
-				if err := ctx.Request().DecodeBody(msg.Interface()); err != nil {
+				if err := ctx.Message().DecodeBody(msg.Interface()); err != nil {
 					return err
 				}
 				in := []reflect.Value{msg}
@@ -121,7 +121,7 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 
 			handler := func(ctx arpc.Context) error {
 				msg := reflect.New(p1.Elem())
-				if err := ctx.Response().DecodeBody(msg.Interface()); err != nil {
+				if err := ctx.Message().DecodeBody(msg.Interface()); err != nil {
 					return err
 				}
 

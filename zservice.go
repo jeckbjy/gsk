@@ -21,6 +21,7 @@ type service struct {
 	afterStop   []Callback
 	router      arpc.Router
 	name        string
+	exitCh      chan os.Signal
 }
 
 func (s *service) Name() string {
@@ -90,6 +91,7 @@ func (s *service) Run() error {
 
 	// wait
 	ch := make(chan os.Signal, 1)
+	s.exitCh = ch
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	select {
 	// wait on kill signal
@@ -104,6 +106,12 @@ func (s *service) Run() error {
 	}
 
 	return nil
+}
+
+func (s *service) Exit() {
+	if s.exitCh != nil {
+		s.exitCh <- syscall.SIGQUIT
+	}
 }
 
 func (s *service) Register(callback interface{}, opts ...arpc.RegisterOption) error {

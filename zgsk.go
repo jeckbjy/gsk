@@ -4,6 +4,8 @@ import (
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/anet/tcp"
 	"github.com/jeckbjy/gsk/arpc"
+	"github.com/jeckbjy/gsk/arpc/handler"
+	"github.com/jeckbjy/gsk/arpc/packet"
 	"github.com/jeckbjy/gsk/arpc/router"
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/codec/gobc"
@@ -18,18 +20,22 @@ import (
 	"github.com/jeckbjy/gsk/registry/local"
 )
 
-// 设置默认参数
+// 设置默认数据
 func init() {
 	codec.Add(xmlc.New())
 	codec.Add(gobc.New())
-	codec.Add(jsonc.New())
 	codec.Add(protoc.New())
+	codec.Add(jsonc.New())
+	codec.SetDefault(codec.GetByName(jsonc.Name))
 
-	anet.SetDefault(tcp.New)
-	registry.SetDefault(local.New())
 	frame.SetDefault(varint.New())
+	registry.SetDefault(local.New())
+
 	exec.SetDefault(simple.New())
+	anet.SetDefault(tcp.New)
 	arpc.SetDefaultRouter(router.New())
+	arpc.SetDefaultPacketFactory(packet.New)
+	arpc.SetDefaultContextFactory(handler.NewContext)
 }
 
 // 强制要求提供服务名
@@ -44,6 +50,7 @@ func New(name string, opts ...Option) Service {
 type Service interface {
 	Name() string
 	Run() error
+	Exit()
 	Register(callback interface{}, opts ...arpc.RegisterOption) error
 	Send(service string, req interface{}, opts ...arpc.CallOption) error
 	Call(service string, req interface{}, rsp interface{}, opts ...arpc.CallOption) error

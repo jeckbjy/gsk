@@ -18,7 +18,7 @@ type HeadFlag uint
 const (
 	HFAck         HeadFlag = 0  // 标识是否是消息应答,bool
 	HFStatus               = 1  // 返回状态信息,空表示OK,string
-	HFContentType          = 2  // 编码协议,int
+	HFContentType          = 2  // 编码协议,0表示使用默认双方约定的协议,int
 	HFCommand              = 3  // 服务器内部编码协议,int
 	HFSeqID                = 4  // RPC唯一ID,string,改用uint64?
 	HFMsgID                = 5  // 静态唯一消息ID
@@ -44,8 +44,6 @@ const (
 // 客户端与服务器通信经常使用的有,Auth,Checksum
 const HFExtraMax = 6
 const HFExtraMask = ^uint16(1<<HFExtra - 1)
-
-type NewPacket func() Packet
 
 // 私有通信协议
 // 编码格式:Flag[2byte]+Head+Body
@@ -117,8 +115,20 @@ type Packet interface {
 	CallInfo() *CallInfo
 	SetCallInfo(info *CallInfo)
 	// 编解码接口
-	Encode() error
-	Decode() error
+	Encode(data *buffer.Buffer) error
+	Decode(data *buffer.Buffer) error
 	// 解析body
 	DecodeBody(msg interface{}) error
+}
+
+type PacketFactory func() Packet
+
+var gPacketFactory PacketFactory
+
+func SetDefaultPacketFactory(fn PacketFactory) {
+	gPacketFactory = fn
+}
+
+func NewPacket() Packet {
+	return gPacketFactory()
 }

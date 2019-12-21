@@ -32,7 +32,7 @@ type Task interface {
 // TODO:消息延迟处理或重新投递
 // 比如收到消息后,需要先验证数据是否加载成功
 type Executor interface {
-	Handle(task Task) error
+	Post(task Task) error
 	Stop() error
 	Wait()
 }

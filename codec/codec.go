@@ -15,11 +15,11 @@ func Add(c Codec) {
 	gTypeList[c.Type()] = c
 }
 
-func Get(name string) Codec {
+func GetByName(name string) Codec {
 	return gCodecMap[name]
 }
 
-func GetByType(t int) Codec {
+func Get(t int) Codec {
 	if t < len(gTypeList) {
 		return gTypeList[t]
 	}
@@ -27,9 +27,14 @@ func GetByType(t int) Codec {
 	return nil
 }
 
+func SetDefault(c Codec) {
+	gTypeList[Default] = c
+}
+
 // 枚举定义常见的消息编码格式
 const (
-	Json = iota
+	Default = iota
+	Json
 	Proto
 	Xml
 	Gob

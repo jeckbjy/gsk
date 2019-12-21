@@ -1,4 +1,4 @@
-package frame
+package fframe
 
 import (
 	"io"

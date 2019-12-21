@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jeckbjy/gsk/util/errorx"
+
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/util/buffer"
@@ -163,6 +165,9 @@ func (p *Packet) SetBody(body interface{}) {
 }
 
 func (p *Packet) Codec() codec.Codec {
+	if p.codec == nil {
+		p.codec = codec.Get(p.ContentType())
+	}
 	return p.codec
 }
 
@@ -218,10 +223,11 @@ func (p *Packet) SetCallInfo(info *arpc.CallInfo) {
 	p.callInfo = info
 }
 
-func (p *Packet) Encode() error {
-	if p.buffer == nil {
-		p.buffer = buffer.New()
+func (p *Packet) Encode(data *buffer.Buffer) error {
+	if data == nil {
+		return errorx.ErrInvalidParam
 	}
+	p.buffer = data
 
 	// encode head
 	w := Writer{}
@@ -250,21 +256,29 @@ func (p *Packet) Encode() error {
 		if body, ok := p.body.(*buffer.Buffer); ok {
 			// 已经序列化好
 			p.buffer.AppendBuffer(body)
-		} else if p.codec != nil {
+		} else {
+			if p.codec == nil {
+				p.codec = codec.Get(int(p.contentType))
+			}
+			if p.codec == nil {
+				return errors.New("not found codec")
+			}
 			buf := buffer.New()
 			if err := p.codec.Encode(buf, p.body); err != nil {
 				return err
 			}
 			p.buffer.AppendBuffer(buf)
-		} else {
-			return errors.New("packet no codec")
 		}
 	}
 
 	return nil
 }
 
-func (p *Packet) Decode() (err error) {
+func (p *Packet) Decode(data *buffer.Buffer) (err error) {
+	if data == nil {
+		return errorx.ErrInvalidParam
+	}
+	p.buffer = data
 	r := Reader{}
 	if err := r.Init(p.buffer); err != nil {
 		return err
@@ -315,7 +329,8 @@ func (p *Packet) Decode() (err error) {
 		}
 	}
 
-	// lazy decode body
+	p.codec = codec.Get(p.ContentType())
+
 	if p.body != nil && p.codec != nil {
 		if err := p.codec.Decode(p.buffer, p.body); err != nil {
 			return err
@@ -326,7 +341,7 @@ func (p *Packet) Decode() (err error) {
 }
 
 func (p *Packet) DecodeBody(msg interface{}) error {
-	if p.codec == nil {
+	if p.Codec() == nil {
 		return errors.New("no codec")
 	}
 

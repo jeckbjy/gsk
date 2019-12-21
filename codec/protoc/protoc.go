@@ -11,6 +11,8 @@ import (
 
 var ErrNotMessage = errors.New("not pb message")
 
+const Name = "proto"
+
 func New() codec.Codec {
 	return &Codec{}
 }
@@ -23,7 +25,7 @@ func (*Codec) Type() int {
 }
 
 func (*Codec) Name() string {
-	return "proto"
+	return Name
 }
 
 func (*Codec) Encode(b *buffer.Buffer, msg interface{}) error {

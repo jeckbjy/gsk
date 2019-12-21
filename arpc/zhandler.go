@@ -1,7 +1,6 @@
 package arpc
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/jeckbjy/gsk/anet"
@@ -14,12 +13,12 @@ type Handler func(ctx Context) error
 type Middleware func(Handler) Handler
 
 type Context interface {
-	context.Context
-	Reset()                     // 重置数据
+	Init(conn anet.Conn, msg Packet)
+	Free()                      // 释放,可用于pool回收
 	Conn() anet.Conn            // 原始Socket
-	Request() Packet            // 消息请求
-	Response() Packet           // 消息应答
+	Message() Packet            // 消息信息
 	Send(msg interface{}) error // 发送消息,不关心返回结果
+	NewPacket() Packet          // 用于创建Response
 }
 
 func IsContext(t reflect.Type) bool {
@@ -34,4 +33,16 @@ func IsMessage(t reflect.Type) bool {
 
 func IsError(t reflect.Type) bool {
 	return t.Implements(reflect.TypeOf((*error)(nil)).Elem())
+}
+
+type ContextFactory func() Context
+
+var gContextFactory ContextFactory
+
+func SetDefaultContextFactory(fn ContextFactory) {
+	gContextFactory = fn
+}
+
+func NewContext() Context {
+	return gContextFactory()
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func New(strategy Strategy, maxWorker int) exec.Executor {
-	e := &Executor{strategy: strategy}
+	e := &executor{strategy: strategy}
 	if maxWorker > 0 {
 		e.workers = make([]*base.Worker, maxWorker)
 	}
@@ -17,7 +17,8 @@ func New(strategy Strategy, maxWorker int) exec.Executor {
 
 type Strategy func(task exec.Task) int
 
-type Executor struct {
+// 根据hash的方式投递到某个线程中执行
+type executor struct {
 	workers  []*base.Worker
 	strategy Strategy
 	mux      sync.Mutex
@@ -25,7 +26,7 @@ type Executor struct {
 	wg       sync.WaitGroup
 }
 
-func (e *Executor) Stop() error {
+func (e *executor) Stop() error {
 	e.mux.Lock()
 	e.quit = true
 	for _, w := range e.workers {
@@ -36,11 +37,11 @@ func (e *Executor) Stop() error {
 	return nil
 }
 
-func (e *Executor) Wait() {
+func (e *executor) Wait() {
 	e.wg.Wait()
 }
 
-func (e *Executor) Handle(task exec.Task) error {
+func (e *executor) Post(task exec.Task) error {
 	if e.quit {
 		return exec.ErrAlreadyStop
 	}
@@ -52,7 +53,7 @@ func (e *Executor) Handle(task exec.Task) error {
 	return nil
 }
 
-func (e *Executor) obtain(index int) *base.Worker {
+func (e *executor) obtain(index int) *base.Worker {
 	var worker *base.Worker
 
 	e.mux.Lock()

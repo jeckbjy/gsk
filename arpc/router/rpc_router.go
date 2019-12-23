@@ -77,15 +77,15 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 		handler := func(ctx arpc.Context) error {
 			// 注意:这里需要调用Request
 			err := ctx.Message().DecodeBody(rsp)
-			future.Done()
+			future.Done(err)
 			return err
 		}
 		return r.add(handler, request)
 	case reflect.Func:
 		// 传入的是函数指针,暗示非阻塞调用
 		// 函数原型1:
-		// func(*XXXResponse)
-		// func(Context, *XXXResponse)
+		// func(*XXXResponse) error
+		// func(arpc.Context, *XXXResponse) error
 		switch t.NumIn() {
 		case 1:
 			if arpc.IsContext(t.In(0)) {
@@ -95,19 +95,31 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 			if p0.Kind() != reflect.Ptr || p0.Elem().Kind() != reflect.Struct {
 				return ErrInvalidHandler
 			}
+
+			// 返回值需要是error
+			if t.NumOut() != 1 || !arpc.IsError(t.Out(0)) {
+				return ErrInvalidHandler
+			}
+
 			handler := func(ctx arpc.Context) error {
 				msg := reflect.New(p0.Elem())
-				if err := ctx.Message().DecodeBody(msg.Interface()); err != nil {
-					return err
-				}
-				in := []reflect.Value{msg}
-				v.Call(in)
-				if future != nil {
-					return future.Done()
+
+				err := ctx.Message().DecodeBody(msg.Interface())
+				if err == nil {
+					in := []reflect.Value{msg}
+					out := v.Call(in)
+					if !out[0].IsNil() {
+						err = out[0].Interface().(error)
+					}
 				}
 
-				return nil
+				if future != nil {
+					future.Done(err)
+				}
+
+				return err
 			}
+
 			return r.add(handler, request)
 		case 2:
 			if !arpc.IsContext(t.In(0)) {
@@ -119,16 +131,24 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 				return ErrInvalidHandler
 			}
 
+			// 返回值需要是error
+			if t.NumOut() != 1 || arpc.IsError(t.Out(0)) {
+				return ErrInvalidHandler
+			}
+
 			handler := func(ctx arpc.Context) error {
 				msg := reflect.New(p1.Elem())
-				if err := ctx.Message().DecodeBody(msg.Interface()); err != nil {
-					return err
+				err := ctx.Message().DecodeBody(msg.Interface())
+				if err == nil {
+					in := []reflect.Value{reflect.ValueOf(ctx), msg}
+					out := v.Call(in)
+					if !out[0].IsNil() {
+						err = out[0].Interface().(error)
+					}
 				}
 
-				in := []reflect.Value{reflect.ValueOf(ctx), msg}
-				v.Call(in)
 				if future != nil {
-					return future.Done()
+					future.Done(err)
 				}
 
 				return nil
@@ -147,34 +167,42 @@ func (r *_RpcRouter) Register(request arpc.Packet) error {
 func (r *_RpcRouter) add(handler arpc.Handler, req arpc.Packet) error {
 	var err error
 	r.mux.Lock()
-	expired := time.Now().Add(req.TTL()).UnixNano() / int64(time.Millisecond)
-	info := &_RpcInfo{
-		Handler:  handler,
-		Request:  req,
-		Expire:   expired,
-		RetryNum: 0,
-	}
-	r.infos[req.SeqID()] = info
-	switch r.status {
-	case statusStop:
+	if r.status != statusStop {
+		future := req.CallInfo().Future
+		if future != nil {
+			// auto add one
+			future.Add()
+		}
+		expired := time.Now().Add(req.TTL()).UnixNano() / int64(time.Millisecond)
+		info := &_RpcInfo{
+			Handler:  handler,
+			Request:  req,
+			Expire:   expired,
+			RetryNum: 0,
+		}
+		r.infos[req.SeqID()] = info
+		if r.status == statusIdle {
+			// lazy start
+			r.status = statusRun
+			go r.Run()
+		}
+	} else {
 		err = ErrHasStopped
-	case statusIdle:
-		r.status = statusRun
-		go r.Run()
 	}
+
 	r.mux.Unlock()
 	return err
-}
-
-// TODO:检测过期
-func (r *_RpcRouter) Run() {
-
 }
 
 func (r *_RpcRouter) Close() {
 	r.mux.Lock()
 	r.status = statusStop
 	r.mux.Unlock()
+}
+
+// TODO:检测过期
+func (r *_RpcRouter) Run() {
+
 }
 
 //func (r *RpcRouter) Run() {

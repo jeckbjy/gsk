@@ -31,8 +31,10 @@ func IsMessage(t reflect.Type) bool {
 	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct
 }
 
+var errorType = reflect.TypeOf((*error)(nil)).Elem()
+
 func IsError(t reflect.Type) bool {
-	return t.Implements(reflect.TypeOf((*error)(nil)).Elem())
+	return t.Implements(errorType)
 }
 
 type ContextFactory func() Context

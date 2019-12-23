@@ -5,8 +5,6 @@ import (
 
 	"github.com/jeckbjy/gsk/util/idgen/xid"
 
-	"github.com/jeckbjy/gsk/arpc/packet"
-
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/selector"
@@ -54,7 +52,11 @@ func (c *_Client) Send(service string, msg interface{}, opts ...arpc.CallOption)
 	return conn.Send(pkg)
 }
 
-// RPC调用,req需要发送的消息,rsp可以是异步回调函数,也可以是变量(同步调用)
+// Call - 异步RPC调用
+//	req需要发送的消息,可以是arpc.Packet,也可以是普通消息结构体指针
+//	rsp可以是异步回调函数,也可以是同步结构体指针
+// 	底层必须保证调用了一次Add,则必须对应着调用一次Done,否则会永久等待
+// 	Call调用必须有一个超时,防止消息丢失后,永久无法释放
 func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ...arpc.CallOption) error {
 	o := arpc.CallOptions{}
 	for _, fn := range opts {
@@ -68,8 +70,8 @@ func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ..
 	autoWait := false
 
 	if o.Future == nil && reflect.TypeOf(rsp).Kind() != reflect.Func {
+		// 同步调用,并且外部没有创建Future
 		o.Future = NewFuture()
-		_ = o.Future.Add(1)
 		autoWait = true
 	}
 
@@ -102,7 +104,9 @@ func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ..
 
 	err = c.sendMsg(next, pkg)
 	if autoWait {
-		o.Future.Wait()
+		if e := o.Future.Wait(); e != nil {
+			err = e
+		}
 	}
 	return err
 }
@@ -141,8 +145,8 @@ func (c *_Client) newRequest(req interface{}, o *arpc.CallOptions) arpc.Packet {
 		}
 		return pkg
 	} else {
-		// 使用默认的
-		pkg := packet.New()
+		pkg := arpc.NewPacket()
+		// 优先使用MsgID,然后再使用名字
 		if o.ID != 0 {
 			pkg.SetMsgID(uint16(o.ID))
 		} else {

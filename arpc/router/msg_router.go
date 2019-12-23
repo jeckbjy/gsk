@@ -87,7 +87,11 @@ func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
 			}
 			in := []reflect.Value{reflect.ValueOf(ctx), msg}
 			out := v.Call(in)
-			return out[0].Interface().(error)
+			if !out[0].IsNil() {
+				return out[0].Interface().(error)
+			}
+
+			return nil
 		}
 	case 3:
 		if !arpc.IsMessage(t.In(1)) && !arpc.IsMessage(t.In(2)) {
@@ -106,10 +110,11 @@ func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
 			reply.SetBody(rsp)
 			in := []reflect.Value{reflect.ValueOf(ctx), msg, rsp}
 			out := v.Call(in)
-			err := out[0].Interface().(error)
-			if err != nil {
+			if !out[0].IsNil() {
+				err := out[0].Interface().(error)
 				reply.SetStatus(err.Error())
 			}
+
 			return ctx.Send(reply)
 		}
 	}

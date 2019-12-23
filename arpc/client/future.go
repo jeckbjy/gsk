@@ -24,52 +24,34 @@ func (f *_Future) Init() {
 	f.cond = sync.NewCond(&f.mux)
 }
 
-func (f *_Future) Add(delta int) error {
+func (f *_Future) Add() {
 	f.mux.Lock()
-	defer f.mux.Unlock()
-	if f.err != nil {
-		return f.err
-	}
-
-	f.count += delta
-	return nil
+	f.count++
+	f.mux.Unlock()
 }
 
-func (f *_Future) Done() error {
+func (f *_Future) Done(err error) {
 	f.mux.Lock()
-	if f.err != nil {
-		f.mux.Unlock()
-		return f.err
+	f.count--
+
+	if f.err == nil && err != nil {
+		f.err = err
 	}
 
-	f.count--
+	notify := f.count <= 0 || f.err != nil
 	f.mux.Unlock()
-	if f.count == 0 {
+
+	if notify {
 		f.cond.Signal()
 	}
-	return nil
-}
-
-func (f *_Future) Fail(err error) error {
-	f.mux.Lock()
-	if f.err != nil {
-		f.mux.Unlock()
-		return f.err
-	}
-	f.err = err
-	f.count = 0
-	f.mux.Unlock()
-	f.cond.Signal()
-	return nil
 }
 
 func (f *_Future) Wait() error {
-	var err error
 	f.mux.Lock()
-	for f.count > 0 {
+	for f.count > 0 && f.err == nil {
 		f.cond.Wait()
 	}
-	err = f.err
+	err := f.err
 	f.mux.Unlock()
 	return err
 }

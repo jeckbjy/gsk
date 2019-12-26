@@ -31,12 +31,14 @@ func Register(callback interface{}, opts ...RegisterOption) error {
 // 原型2: func(ctx Context, req *Request) error
 // 原型3: func(ctx Context, req *Request, rsp *Response) error
 // 原型1需要手动解析,原型2,3需要反射,性能会有额外消耗
+// 原型3:系统会自动发送消息,但是如何确定消息的ID呢?
 // RPC回调原型:
-// rcp调用不需要Request信息,只通过SeqID查询
+// rpc调用不需要Request信息,只通过SeqID查询
 // 原型1: func(rsp *Response) error
 // 原型2: func(ctx Context, rsp *Response) error
 //
 // 获取Endpoints信息
+// TODO:Router的实现还是笼统庞杂了,也许应该明确区分出来到底是使用哪种通信协议
 type Router interface {
 	// 注册消息回调
 	Register(callback interface{}, opts ...RegisterOption) error

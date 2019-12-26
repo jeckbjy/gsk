@@ -17,7 +17,7 @@ type _MsgInfo struct {
 	Method  string
 }
 
-// TODO:response的处理还有点凌乱
+// TODO:是否需要限制任何一个消息回调都必须返回一个消息??
 type _MsgRouter struct {
 	mux     sync.RWMutex
 	ids     []*_MsgInfo

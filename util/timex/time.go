@@ -1,4 +1,4 @@
-package times
+package timex
 
 import "time"
 

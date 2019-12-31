@@ -1,34 +1,26 @@
 package cli
 
-type NewOptions struct {
-	Comma    rune    // 解析命令行使用
-	AutoExec bool    // 自动使用os.Args执行Exec,默认true
-	Cmds     []*Cmd  // 命令
-	Flags    []*Flag //
+type Option func(o *Options)
+type Options struct {
+	Name  string            // command名字,可以是xx/xx/xxx形式
+	Group string            // command分组,可用于help格式化输出
+	Meta  map[string]string // 自定义数据用于扩展
 }
 
-type NewOption func(o *NewOptions)
-
-func WithComma(comma rune) NewOption {
-	return func(o *NewOptions) {
-		o.Comma = comma
+func Name(n string) Option {
+	return func(o *Options) {
+		o.Name = n
 	}
 }
 
-func DisableAutoExec() NewOption {
-	return func(o *NewOptions) {
-		o.AutoExec = false
+func Group(g string) Option {
+	return func(o *Options) {
+		o.Group = g
 	}
 }
 
-func WithCmds(cmd ...*Cmd) NewOption {
-	return func(o *NewOptions) {
-		o.Cmds = cmd
-	}
-}
-
-func WithFlags(flags ...*Flag) NewOption {
-	return func(o *NewOptions) {
-		o.Flags = flags
+func Meta(meta map[string]string) Option {
+	return func(o *Options) {
+		o.Meta = meta
 	}
 }

@@ -1,54 +1,79 @@
 package cli
 
 import (
-	"context"
-	"errors"
+	"encoding/json"
+	"encoding/xml"
+	"fmt"
 )
 
-func newContext(ctx context.Context, engine *Engine, cmd *Cmd, args []string, flags map[string][]string) *Context {
-	return &Context{Context: ctx, engine: engine, cmd: cmd, args: args, flags: flags}
+type _Context struct {
+	params []string            // 必须参数,安下标索引,已经去除了command名字信息
+	flags  map[string][]string // 可选数据,value可以是数组
+	metas  map[string]string   // 元数据信息,通过外部传入
+	result interface{}         // 返回结果
 }
 
-type Context struct {
-	context.Context
-	engine *Engine
-	cmd    *Cmd                // cmd
-	args   []string            // cmd参数
-	flags  map[string][]string // 可选数据,可以为空
+func (c *_Context) NArg() int {
+	return len(c.params)
 }
 
-// args
-func (c *Context) NArg() int {
-	return len(c.args)
+func (c *_Context) Arg(index int) string {
+	return c.params[index]
 }
 
-func (c *Context) Arg(i int) string {
-	return c.args[i]
-}
-
-func (c *Context) BindArg(i int, data interface{}) error {
-	if i < len(c.args) {
-		return bindValue(c.args[i], data)
-	}
-
-	return errors.New("overflow")
-}
-
-// flags
-func (c *Context) NFlag() int {
+func (c *_Context) NFlag() int {
 	return len(c.flags)
 }
 
-func (c *Context) Flag(key string) []string {
-	return c.flags[key]
+func (c *_Context) Flag(key string) []string {
+	if c.flags != nil {
+		return c.flags[key]
+	}
+
+	return nil
 }
 
-// 通过key绑定flag
-func (c *Context) BindFlag(key string, data interface{}) {
+func (c *_Context) Get(key string) string {
+	if c.metas != nil {
+		return c.metas[key]
+	}
 
+	return ""
 }
 
-// 绑定args和flag,通过类型判断
-func (c *Context) Bind() {
+func (c _Context) Result() interface{} {
+	return c.result
+}
 
+func (c *_Context) JSON(data interface{}) error {
+	result, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	c.result = string(result)
+	return nil
+}
+
+func (c *_Context) XML(value interface{}) error {
+	result, err := xml.Marshal(value)
+	if err != nil {
+		return err
+	}
+	c.result = string(result)
+	return nil
+}
+
+func (c *_Context) Text(format string, values ...interface{}) error {
+	if len(values) > 0 {
+		c.result = fmt.Sprintf(format, values...)
+	} else {
+		c.result = format
+	}
+
+	return nil
+}
+
+func (c *_Context) Any(value interface{}) error {
+	c.result = value
+	return nil
 }

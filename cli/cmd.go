@@ -1,92 +1,262 @@
 package cli
 
-import "errors"
-
-var (
-	errNotFoundCmd   = errors.New("not found cmd")
-	errNoLeafNodeCmd = errors.New("no leaf node cmd")
-	errDuplicateFlag = errors.New("duplicate flag name")
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 )
 
-type Action func(ctx *Context) error
-type Cmd struct {
-	Depth   int
-	Name    string
-	Flags   []*Flag
-	Subs    []*Cmd
-	Func    Action
-	parent  *Cmd             // 父节点
-	flagMap map[string]*Flag // 所有flag,包括继承父节点的,同时包括shortcut,只有叶节点才需要
+// Command支持自动绑定字段
+// 指针和数组默认类型为flag可选填,其他默认为必填参数且顺序唯一,除非使用flag tag指定类型
+type _Command struct {
+	name   string
+	full   string
+	group  string
+	subs   []Command
+	action Action
+	fields []*_Field
+	meta   map[string]string
 }
 
-func (c *Cmd) Parent() *Cmd {
-	return c.parent
+func (c *_Command) Name() string {
+	return c.name
 }
 
-// 递归查找sub commond
-func (c *Cmd) find(keys []string) (*Cmd, error) {
-	for _, v := range c.Subs {
-		if v.Name == keys[0] {
-			if len(v.Subs) == 0 {
-				// 找到第一个没有sub的,则表示已经搜索到叶节点
-				return v, nil
-			} else if len(keys) == 1 {
-				// 找到一个,但是不是叶节点
-				return v, errNoLeafNodeCmd
-			} else {
-				// 继续查找
-				return c.find(keys[1:])
-			}
-		}
-	}
-
-	return nil, errNotFoundCmd
+func (c *_Command) Full() string {
+	return c.full
 }
 
-// 构建parent
-func (c *Cmd) build() error {
-	if len(c.Subs) > 0 {
-		for _, v := range c.Subs {
-			v.parent = c
-			v.Depth = c.Depth + 1
-		}
+func (c *_Command) Group() string {
+	return c.group
+}
+
+func (c *_Command) Meta() map[string]string {
+	return c.meta
+}
+
+func (c *_Command) Subs() []Command {
+	return c.subs
+}
+
+func (c *_Command) Add(sub Command) {
+	c.subs = append(c.subs, sub)
+}
+
+func (c *_Command) CanRun() bool {
+	return c.action != nil
+}
+
+func (c *_Command) Run(ctx Context) error {
+	if len(c.fields) == 0 {
+		// 没有额外参数,无需绑定数据
+		return c.action.Run(ctx)
 	} else {
-		// leaf node, build flag map, and inherit from parent
-		c.flagMap = make(map[string]*Flag)
-		if err := c.buildFlagMap(c.flagMap); err != nil {
+		action := reflect.New(reflect.TypeOf(c.action).Elem()).Interface().(Action)
+		if err := c.Bind(ctx, action); err != nil {
+			return err
+		}
+		return action.Run(ctx)
+	}
+}
+
+// 解析Action的field信息
+// 支持的关键字有:required,flag(h|help),def,min,max,desc
+func (c *_Command) Parse(action Action) error {
+	t := reflect.TypeOf(action).Elem()
+	idx := 0
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		tag := f.Tag.Get("cli")
+		if tag == "-" {
+			// 不需要解析
+			continue
+		}
+
+		if err := isSupportType(f.Type); err != nil {
 			return err
 		}
 
-		// inherit from parent
-		node := c.parent
-		for node != nil {
-			if err := node.buildFlagMap(c.flagMap); err != nil {
+		field := &_Field{Index: -1, Type: f.Type, Kind: kindArgv}
+		kind := f.Type.Kind()
+		if kind == reflect.Ptr || kind == reflect.Slice {
+			field.Kind = kindFlag
+		}
+
+		if err := field.fillTag(&f, tag); err != nil {
+			return err
+		}
+
+		if field.Index == -1 && field.Kind == kindArgv {
+			field.Index = idx
+			idx++
+		}
+		c.fields = append(c.fields, field)
+	}
+	return nil
+}
+
+// 校验并绑定参数
+func (c *_Command) Bind(ctx Context, action Action) error {
+	v := reflect.ValueOf(action).Elem()
+	for idx, info := range c.fields {
+		field := v.Field(idx)
+		switch info.Kind {
+		case kindArgv:
+			if err := bindArgv(ctx, field, info); err != nil {
 				return err
 			}
-			node = node.parent
+		case kindFlag:
+			if err := bindFlag(ctx, field, info); err != nil {
+				return err
+			}
+		case kindMeta:
+			if err := bindMeta(ctx, field, info); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (c *Cmd) buildFlagMap(flagMap map[string]*Flag) error {
-	for _, f := range c.Flags {
-		if f.Name != "" {
-			if _, exists := flagMap[f.Name]; exists {
-				return errDuplicateFlag
-			}
-			flagMap[f.Name] = f
-		}
+func bindArgv(ctx Context, field reflect.Value, info *_Field) error {
+	if info.Index >= ctx.NArg() {
+		return fmt.Errorf("param not enough,len %+v, index %+v, name %+v", ctx.NArg(), info.Index, info.Name)
+	}
 
-		if f.Shortcut != "" {
-			if _, exists := flagMap[f.Shortcut]; exists {
-				return errDuplicateFlag
-			}
+	val := ctx.Arg(info.Index)
+	return bindField(field, info, val)
+}
 
-			flagMap[f.Shortcut] = f
+func bindMeta(ctx Context, field reflect.Value, info *_Field) error {
+	val := ctx.Get(info.MetaKey)
+	if val == "" {
+		val = info.Default
+	}
+	if val == "" {
+		return fmt.Errorf("not found meta data,meta key %+v, field %+v", info.MetaKey, info.Name)
+	}
+	return bindValue(field, info, val)
+}
+
+func bindFlag(ctx Context, field reflect.Value, info *_Field) error {
+	var values []string
+	for _, k := range info.Flags {
+		vv := ctx.Flag(k)
+		if vv != nil {
+			values = append(values, vv...)
 		}
 	}
 
+	switch len(values) {
+	case 0:
+		if info.Default == "" {
+			return bindValue(field, info, info.Default)
+		} else if info.Required {
+			return fmt.Errorf("%+v is required,not found data", info.Name)
+		}
+	case 1:
+		return bindValue(field, info, values[0])
+	default:
+		if info.Type.Kind() != reflect.Slice {
+			return fmt.Errorf("param not match,need %+v, but slice", info.Type.Kind())
+		}
+
+		slicev := reflect.New(info.Type)
+		elemt := info.Type.Elem()
+
+		for _, text := range values {
+			elemv := reflect.New(elemt)
+			if err := bindValue(elemv, info, text); err != nil {
+				return err
+			}
+			slicev = reflect.Append(slicev, elemv)
+		}
+		field.Set(slicev)
+		return nil
+	}
+
 	return nil
+}
+
+func bindField(field reflect.Value, info *_Field, text string) error {
+	switch info.Type.Kind() {
+	case reflect.Ptr:
+		return bindValue(field.Elem(), info, text)
+	case reflect.Slice:
+		return fmt.Errorf("type not match,need slice, %+v", info.Name)
+	default:
+		return bindValue(field, info, text)
+	}
+}
+
+func bindValue(value reflect.Value, info *_Field, text string) error {
+	switch info.Type.Kind() {
+	case reflect.Bool:
+		x, err := strconv.ParseBool(text)
+		if err != nil {
+			return err
+		}
+		value.SetBool(x)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		x, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			return err
+		}
+		if err := info.validateRange(float64(x)); err != nil {
+			return err
+		}
+		value.SetInt(x)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		x, err := strconv.ParseUint(text, 10, 64)
+		if err != nil {
+			return err
+		}
+		if err := info.validateRange(float64(x)); err != nil {
+			return err
+		}
+		value.SetUint(x)
+	case reflect.Float32, reflect.Float64:
+		x, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return err
+		}
+		if err := info.validateRange(x); err != nil {
+			return err
+		}
+		value.SetFloat(x)
+	case reflect.String:
+		if err := info.validateIn(text); err != nil {
+			return err
+		}
+		value.SetString(text)
+	default:
+		return ErrNotSupport
+	}
+	return nil
+}
+
+// 去除所有空格
+func trimSpaceAll(tokens []string) []string {
+	for i, t := range tokens {
+		tokens[i] = strings.TrimSpace(t)
+	}
+	return tokens
+}
+
+// 判断是否支持
+func isSupportType(t reflect.Type) error {
+	if t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
+		t = t.Elem()
+	}
+	kind := t.Kind()
+	if kind >= reflect.Bool && kind <= reflect.Float64 && kind != reflect.Uintptr {
+		return nil
+	}
+	if kind == reflect.String {
+		return nil
+	}
+	return errors.New("not support type")
 }

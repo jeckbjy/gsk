@@ -2,169 +2,158 @@ package router
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"sync"
-
-	"github.com/jeckbjy/gsk/util/reflects"
 
 	"github.com/jeckbjy/gsk/arpc"
 )
 
 type _MsgInfo struct {
 	Handler arpc.Handler
-	ID      uint
-	Name    string
-	Method  string
+	Extra   interface{}
 }
 
-// TODO:是否需要限制任何一个消息回调都必须返回一个消息??
-type _MsgRouter struct {
-	mux     sync.RWMutex
-	ids     []*_MsgInfo
-	names   map[string]*_MsgInfo
-	methods map[string]*_MsgInfo
+type MsgRouter struct {
+	mux  sync.RWMutex         //
+	list []*_MsgInfo          // ID列表
+	dict map[string]*_MsgInfo // (name/method)=>MsgInfo
 }
 
-func (r *_MsgRouter) Init() {
-	r.names = make(map[string]*_MsgInfo)
-	r.methods = make(map[string]*_MsgInfo)
+func (r *MsgRouter) Init() {
+	r.dict = make(map[string]*_MsgInfo)
 }
 
-func (r *_MsgRouter) Find(pkg arpc.Packet) (arpc.Handler, error) {
+func (r *MsgRouter) Handle(ctx arpc.Context) arpc.Handler {
 	r.mux.RLock()
-	var info *_MsgInfo
-	if pkg.MsgID() > 0 && int(pkg.MsgID()) < len(r.ids) {
-		info = r.ids[pkg.MsgID()]
+	defer r.mux.RUnlock()
+
+	pkg := ctx.Message()
+	info := r.find(pkg)
+	if info != nil {
+		ctx.SetData(info.Extra)
+		return info.Handler
 	}
 
-	if info == nil && pkg.Method() != "" {
-		info = r.methods[pkg.Method()]
-	}
-
-	if info == nil && pkg.Name() != "" {
-		info = r.names[pkg.Name()]
-	}
-	r.mux.RUnlock()
-
-	if info != nil && info.Handler != nil {
-		return info.Handler, nil
-	}
-
-	return nil, arpc.ErrNoHandler
+	return nil
 }
 
-func (r *_MsgRouter) Register(srv interface{}, o *arpc.RegisterOptions) error {
-	v := reflect.ValueOf(srv)
-	t := v.Type()
-	if t.Kind() != reflect.Func {
-		return arpc.ErrNotSupport
-	}
-
-	if t.NumIn() < 1 || t.NumIn() > 3 || t.NumOut() != 1 {
-		return arpc.ErrInvalidHandler
-	}
-
-	if !arpc.IsContext(t.In(0)) || !arpc.IsError(t.Out(0)) {
-		return arpc.ErrInvalidHandler
-	}
-
-	var handler arpc.Handler
-	// 原型
-	// func(ctx Context) error
-	// func(ctx Context, req *XXRequest) error
-	// func(ctx Context, req *XXRequest, rsp *XXResponse) error
-	switch t.NumIn() {
-	case 1:
-		handler = srv.(arpc.Handler)
-	case 2:
-		if !arpc.IsMessage(t.In(1)) {
-			return arpc.ErrInvalidHandler
-		}
-		handler = func(ctx arpc.Context) error {
-			msg := reflect.New(t.In(1).Elem())
-			if err := ctx.Message().DecodeBody(msg); err != nil {
-				return err
-			}
-			in := []reflect.Value{reflect.ValueOf(ctx), msg}
-			out := v.Call(in)
-			if !out[0].IsNil() {
-				return out[0].Interface().(error)
-			}
-
-			return nil
-		}
-	case 3:
-		if !arpc.IsMessage(t.In(1)) && !arpc.IsMessage(t.In(2)) {
-			return arpc.ErrInvalidHandler
-		}
-		handler = func(ctx arpc.Context) error {
-			msg := reflect.New(t.In(1).Elem())
-			if err := ctx.Message().DecodeBody(msg); err != nil {
-				return err
-			}
-			rsp := reflect.New(t.In(2))
-
-			request := ctx.Message()
-			reply := ctx.NewPacket()
-			reply.SetSeqID(request.SeqID())
-			reply.SetBody(rsp)
-			in := []reflect.Value{reflect.ValueOf(ctx), msg, rsp}
-			out := v.Call(in)
-			if !out[0].IsNil() {
-				err := out[0].Interface().(error)
-				reply.SetStatus(err.Error())
-			}
-
-			return ctx.Send(reply)
+func (r *MsgRouter) find(pkg arpc.Packet) *_MsgInfo {
+	if pkg.MsgID() != 0 {
+		index := toIndex(pkg.MsgID())
+		if index < len(r.list) {
+			return r.list[index]
 		}
 	}
 
-	name := o.Name
-	if len(name) == 0 && t.NumIn() > 1 {
-		name = t.In(1).Elem().Name()
+	if r.dict == nil {
+		return nil
+	}
+	if pkg.Name() != "" {
+		return r.dict[pkg.Name()]
+	} else if pkg.Method() != "" {
+		return r.dict[pkg.Method()]
 	}
 
-	method := o.Method
-	if len(method) == 0 {
-		method = reflects.FuncName(v.Pointer())
-	}
+	return nil
+}
 
-	info := &_MsgInfo{Handler: handler, ID: o.ID, Name: name, Method: method}
-	if info.ID == 0 && info.Name == "" && info.Method == "" {
-		return ErrInvalidHandler
+func (r *MsgRouter) Register(cb interface{}, o *arpc.MiscOptions) error {
+	v := reflect.ValueOf(cb)
+	handler, err := toHandler(&v, cb)
+	if err != nil {
+		return err
 	}
 
 	r.mux.Lock()
-	err := r.add(info)
-	r.mux.Unlock()
+	defer r.mux.Unlock()
+
+	info := &_MsgInfo{Handler: handler, Extra: o.Extra}
+
+	// ID和Method可以共存,因为可以支持多种协议,比如tcp为了高效可以使用ID,http为了简单方便可以使用Method
+	// 但Name则不是必须的,只有在测试的环境下才需要使用,因为使用Name完全可以用ID的方式代替
+	// 但ID的方式有个缺点,需要外部指定唯一ID,名字可以反射获得
+	if o.ID != 0 {
+		if !arpc.IsValidID(o.ID) {
+			return arpc.ErrInvalidID
+		}
+
+		index := toIndex(o.ID)
+		if index >= len(r.list) {
+			list := make([]*_MsgInfo, index+1)
+			copy(list, r.list)
+			r.list = list
+		}
+
+		if r.list[index] != nil {
+			return fmt.Errorf("duplicate msgid=%+v", o.ID)
+		}
+
+		r.list[index] = info
+	}
+
+	if len(o.Method) != 0 {
+		r.dict[o.Method] = info
+	}
+
+	if o.ID == 0 && len(o.Method) == 0 {
+		// 都没有指定则默认使用name
+		t := v.Type()
+		if t.NumIn() > 1 {
+			name := t.In(1).Elem().Name()
+			r.dict[name] = info
+		}
+	}
 
 	return err
 }
 
-func (r *_MsgRouter) add(info *_MsgInfo) error {
-	if info.ID != 0 {
-		if int(info.ID) >= len(r.ids) {
-			ids := make([]*_MsgInfo, info.ID+1)
-			copy(ids, r.ids)
-			r.ids[info.ID] = info
-		}
-
-		if r.ids[info.ID] != nil {
-			return fmt.Errorf("duplicate register,msgid=%+v", info.ID)
-		}
-		r.ids[info.ID] = info
+func toHandler(v *reflect.Value, cb interface{}) (arpc.Handler, error) {
+	// func(ctx Context) error
+	if handler, ok := cb.(arpc.Handler); ok {
+		return handler, nil
 	}
 
-	if info.Method != "" {
-		if _, ok := r.methods[info.Method]; ok {
-			return fmt.Errorf("duplicate register,method=%+v", info.Method)
+	t := v.Type()
+
+	if t.Kind() != reflect.Func {
+		return nil, arpc.ErrNotSupport
+	}
+
+	if t.NumIn() != 3 || t.NumOut() != 1 || !isContext(t.In(0)) || !isError(t.Out(0)) {
+		return nil, arpc.ErrInvalidHandler
+	}
+
+	// TODO: 是否需要支持:func(ctx Context, req *XXRequest) error
+	// func(ctx Context, req *XXRequest, rsp *XXResponse) error
+	handler := func(ctx arpc.Context) error {
+		pkg := ctx.Message()
+		if pkg.Body() != nil {
+			if err := arpc.DecodeBody(pkg, reflect.New(t.In(0).Elem()).Interface()); err != nil {
+				return err
+			}
 		}
-		r.methods[info.Method] = info
+
+		rsp := reflect.New(t.In(2))
+
+		request := ctx.Message()
+		reply := arpc.NewPacket()
+		reply.SetSeqID(request.SeqID())
+		reply.SetBody(rsp)
+		in := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(pkg.Body()), rsp}
+		out := v.Call(in)
+		if !out[0].IsNil() {
+			err := out[0].Interface().(error)
+			reply.SetStatus(http.StatusInternalServerError, err.Error())
+		}
+
+		return ctx.Send(reply)
 	}
 
-	if info.Name != "" {
-		r.names[info.Name] = info
-	}
+	return handler, nil
+}
 
-	return nil
+// 将ID转换成索引
+func toIndex(id int) int {
+	return id - arpc.IDMin
 }

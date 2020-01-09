@@ -4,6 +4,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/jeckbjy/gsk/util/buffer"
+
 	"github.com/jeckbjy/gsk/codec/jsonc"
 )
 
@@ -22,19 +24,18 @@ func TestEncode(t *testing.T) {
 	pkg.SetService("game")
 	pkg.SetCodec(codec)
 	pkg.SetBody(body)
-	if err := pkg.Encode(); err != nil {
+	buf := buffer.New()
+	if err := pkg.Encode(buf); err != nil {
 		t.Fatal(err)
 	}
 
-	buf := pkg.Buffer()
 	str := buf.String()
 	t.Log(str)
 	_, _ = buf.Seek(0, io.SeekStart)
 
 	pkgd := New()
-	pkgd.SetBuffer(buf)
 	pkgd.SetCodec(codec)
-	if err := pkgd.Decode(); err != nil {
+	if err := pkgd.Decode(buf); err != nil {
 		t.Fatal(err)
 	}
 

@@ -4,8 +4,10 @@ import (
 	"github.com/jeckbjy/gsk/anet"
 )
 
-// selector 比较特殊,默认的实现依赖registry,因此没有提供default设置
-// 客户端Load Balance
+// Selector 客户端LoadBalance
+// 默认基于Registry实现
+// 真实的场景可能会更加复杂,比如Gateway或Proxy,根据不同的服务器需要采用不同的策略
+// 比如通过UID或者GuildID,再或者活动ID等hash到不同的服务器
 type Selector interface {
 	Name() string
 	Select(service string, opts *Options) (Next, error)

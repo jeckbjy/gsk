@@ -7,3 +7,5 @@
 
 ## 其他
 - [go数据结构](https://github.com/emirpasic/gods)
+- [collections](https://github.com/badgerodon/collections)
+- [fsm](https://github.com/looplab/fsm)

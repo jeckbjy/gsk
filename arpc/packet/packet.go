@@ -2,8 +2,6 @@ package packet
 
 import (
 	"errors"
-	"fmt"
-	"time"
 
 	"github.com/jeckbjy/gsk/util/errorx"
 
@@ -18,11 +16,10 @@ func New() arpc.Packet {
 
 type Packet struct {
 	contentType uint
-	command     uint
 	ack         bool
-	status      string
+	status      arpc.Status
 	seqID       string
-	msgID       uint16
+	msgID       int
 	name        string
 	method      string
 	service     string
@@ -32,10 +29,6 @@ type Packet struct {
 	buffer      *buffer.Buffer
 	codec       codec.Codec
 	internal    interface{} // 以下字段不需要序列化
-	ttl         time.Duration
-	retry       int
-	priority    int
-	callInfo    *arpc.CallInfo
 }
 
 func (p *Packet) Reset() {
@@ -50,16 +43,17 @@ func (p *Packet) SetAck(ack bool) {
 	p.ack = ack
 }
 
+func (p *Packet) Code() int {
+	return p.status.Code
+}
+
 func (p *Packet) Status() string {
-	return p.status
+	return p.status.Info
 }
 
-func (p *Packet) SetStatus(status string) {
-	p.status = status
-}
-
-func (p *Packet) SetCodeStatus(code int, info string) {
-	p.status = fmt.Sprintf("%d %s", code, info)
+func (p *Packet) SetStatus(code int, info string) {
+	p.status.Code = code
+	p.status.Info = info
 }
 
 func (p *Packet) ContentType() int {
@@ -70,14 +64,6 @@ func (p *Packet) SetContentType(ct int) {
 	p.contentType = uint(ct)
 }
 
-func (p *Packet) Command() arpc.CommandType {
-	return arpc.CommandType(p.command)
-}
-
-func (p *Packet) SetCommand(ct arpc.CommandType) {
-	p.command = uint(ct)
-}
-
 func (p *Packet) SeqID() string {
 	return p.seqID
 }
@@ -86,11 +72,11 @@ func (p *Packet) SetSeqID(id string) {
 	p.seqID = id
 }
 
-func (p *Packet) MsgID() uint16 {
+func (p *Packet) MsgID() int {
 	return p.msgID
 }
 
-func (p *Packet) SetMsgID(id uint16) {
+func (p *Packet) SetMsgID(id int) {
 	p.msgID = id
 }
 
@@ -191,36 +177,23 @@ func (p *Packet) SetInternal(value interface{}) {
 	p.internal = value
 }
 
-func (p *Packet) TTL() time.Duration {
-	return p.ttl
+func (p *Packet) encodeNameMethod() string {
+	if p.method != "" {
+		return "/" + p.method
+	} else {
+		return p.name
+	}
 }
 
-func (p *Packet) SetTTL(ttl time.Duration) {
-	p.ttl = ttl
-}
-
-func (p *Packet) Retry() int {
-	return p.retry
-}
-
-func (p *Packet) SetRetry(retry int) {
-	p.retry = retry
-}
-
-func (p *Packet) Priority() int {
-	return p.priority
-}
-
-func (p *Packet) SetPriority(value int) {
-	p.priority = value
-}
-
-func (p *Packet) CallInfo() *arpc.CallInfo {
-	return p.callInfo
-}
-
-func (p *Packet) SetCallInfo(info *arpc.CallInfo) {
-	p.callInfo = info
+func (p *Packet) decodeNameMethod(str string) {
+	if len(str) == 0 {
+		return
+	}
+	if str[0] == '/' {
+		p.method = str[1:]
+	} else {
+		p.name = str
+	}
 }
 
 func (p *Packet) Encode(data *buffer.Buffer) error {
@@ -233,13 +206,11 @@ func (p *Packet) Encode(data *buffer.Buffer) error {
 	w := Writer{}
 	w.Init()
 	w.WriteBool(p.ack, 1<<arpc.HFAck)
-	w.WriteString(p.status, 1<<arpc.HFStatus)
+	w.WriteString(p.status.Encode(), 1<<arpc.HFStatus)
 	w.WriteUint(p.contentType, 1<<arpc.HFContentType)
-	w.WriteUint(p.command, 1<<arpc.HFCommand)
 	w.WriteString(p.seqID, 1<<arpc.HFSeqID)
-	w.WriteUint(uint(p.msgID), 1<<arpc.HFMsgID)
-	w.WriteString(p.name, 1<<arpc.HFName)
-	w.WriteString(p.method, 1<<arpc.HFMethod)
+	w.WriteInt(p.msgID, 1<<arpc.HFMsgID)
+	w.WriteString(p.encodeNameMethod(), 1<<arpc.HFNameMethod)
 	w.WriteString(p.service, 1<<arpc.HFService)
 	w.WriteMap(p.heads, 1<<arpc.HFHeadMap)
 	// extras
@@ -284,29 +255,28 @@ func (p *Packet) Decode(data *buffer.Buffer) (err error) {
 		return err
 	}
 
+	status := ""
+	nameMethod := ""
 	// decode head
 	r.ReadBool(&p.ack, 1<<arpc.HFAck)
-	if err := r.ReadString(&p.status, 1<<arpc.HFStatus); err != nil {
+	if err := r.ReadString(&status, 1<<arpc.HFStatus); err != nil {
 		return err
 	}
 	if err := r.ReadUint(&p.contentType, 1<<arpc.HFContentType); err != nil {
 		return err
 	}
-	if err := r.ReadUint(&p.command, 1<<arpc.HFCommand); err != nil {
-		return err
-	}
+	p.status.Decode(status)
+
 	if err := r.ReadString(&p.seqID, 1<<arpc.HFSeqID); err != nil {
 		return err
 	}
-	if err := r.ReadUint16(&p.msgID, 1<<arpc.HFMsgID); err != nil {
+	if err := r.ReadInt(&p.msgID, 1<<arpc.HFMsgID); err != nil {
 		return err
 	}
-	if err := r.ReadString(&p.name, 1<<arpc.HFName); err != nil {
+	if err := r.ReadString(&nameMethod, 1<<arpc.HFNameMethod); err != nil {
 		return err
 	}
-	if err := r.ReadString(&p.method, 1<<arpc.HFMethod); err != nil {
-		return err
-	}
+	p.decodeNameMethod(nameMethod)
 	if err := r.ReadString(&p.service, 1<<arpc.HFService); err != nil {
 		return err
 	}
@@ -337,18 +307,5 @@ func (p *Packet) Decode(data *buffer.Buffer) (err error) {
 		}
 	}
 
-	return nil
-}
-
-func (p *Packet) DecodeBody(msg interface{}) error {
-	if p.Codec() == nil {
-		return errors.New("no codec")
-	}
-
-	if err := p.codec.Decode(p.buffer, msg); err != nil {
-		return err
-	}
-
-	p.body = msg
 	return nil
 }

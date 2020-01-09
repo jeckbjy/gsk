@@ -1,8 +1,6 @@
 package fexec
 
 import (
-	"sync"
-
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/anet/base"
 	"github.com/jeckbjy/gsk/arpc"
@@ -13,7 +11,7 @@ import (
 // 创建execFilter,可以调用Router,Executor,Middleware覆盖默认参数
 func New(opts ...Option) anet.Filter {
 	f := &execFilter{
-		router:   arpc.DefaultRouter(),
+		router:   arpc.GetRouter(),
 		executor: exec.Default(),
 	}
 
@@ -21,9 +19,6 @@ func New(opts ...Option) anet.Filter {
 		fn(f)
 	}
 
-	f.pool.New = func() interface{} {
-		return &Task{pool: &f.pool}
-	}
 	return f
 }
 
@@ -45,25 +40,11 @@ func Executor(executor exec.Executor) Option {
 	}
 }
 
-func Middleware(m ...arpc.Middleware) Option {
-	return func(f *execFilter) {
-		f.middleware = append(f.middleware, m...)
-	}
-}
-
-func Middlewares(m []arpc.Middleware) Option {
-	return func(f *execFilter) {
-		f.middleware = append(f.middleware, m...)
-	}
-}
-
 // execFilter 用于注册消息回调,或执行回调
 type execFilter struct {
 	base.Filter
-	router     arpc.Router
-	executor   exec.Executor
-	middleware []arpc.Middleware
-	pool       sync.Pool
+	router   arpc.Router
+	executor exec.Executor
 }
 
 func (f *execFilter) Name() string {
@@ -81,15 +62,11 @@ func (f *execFilter) HandleRead(ctx anet.FilterCtx) error {
 		return err
 	}
 
-	handler, err := f.router.Find(msg)
-	if err != nil {
-		return err
-	}
-
 	taskCtx := arpc.NewContext()
 	taskCtx.Init(ctx.Conn(), msg)
-	task := f.pool.Get().(*Task)
-	task.Init(taskCtx, handler, f.middleware)
+	task := newTask(taskCtx, f.router)
+	task.Init(taskCtx, f.router)
+
 	return f.executor.Post(task)
 }
 
@@ -101,8 +78,8 @@ func (f *execFilter) HandleWrite(ctx anet.FilterCtx) error {
 		}
 
 		// 注册到router中监听回调和超时
-		if info := pkt.CallInfo(); info != nil {
-			if err := f.router.RegisterRPC(pkt); err != nil {
+		if _, ok := pkt.Internal().(*arpc.MiscOptions); ok {
+			if err := f.router.Register(pkt); err != nil {
 				return err
 			}
 		}

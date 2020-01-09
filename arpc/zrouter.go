@@ -1,68 +1,64 @@
 package arpc
 
 import (
-	"context"
 	"sync/atomic"
+
+	"github.com/jeckbjy/gsk/anet"
 )
 
-var defaultRouter atomic.Value
+var gContextFactory ContextFactory
+var gRouter atomic.Value
 
-func DefaultRouter() Router {
-	return defaultRouter.Load().(Router)
+func SetContextFactory(fn ContextFactory) {
+	gContextFactory = fn
 }
 
-func SetDefaultRouter(r Router) {
-	defaultRouter.Store(r)
+func NewContext() Context {
+	return gContextFactory()
 }
 
-func Register(callback interface{}, opts ...RegisterOption) error {
-	return DefaultRouter().Register(callback, opts...)
+func SetRouter(r Router) {
+	gRouter.Store(r)
 }
 
-// Router 消息处理路由,需要支持服务器响应和客户端RPC响应两种形式:
-// 1:服务端消息响应,这个比较简单,一般服务器启动时注册好消息回调就可以了,
-// 	 可以通过消息ID,消息名,或者调用方法名查找到对应的消息回调
-// Router 消息回调路由
-// 1:静态注册:根据消息ID,消息名或者调用方法名找到对应的消息回调
-// 2:RPC消息回调,根据SeqID查找消息回调
+func GetRouter() Router {
+	return gRouter.Load().(Router)
+}
+
+// Handler 消息回调处理函数
+type Handler func(ctx Context) error
+
+// Middleware 中间件,next可能为nil,即找不到handler
+type Middleware func(next Handler) Handler
+
+type ContextFactory func() Context
+
+// Handler 上下文
+type Context interface {
+	Init(conn anet.Conn, msg Packet)    // 初始化
+	Free()                              // 释放,可用于pool回收
+	Get(key string) (interface{}, bool) // 根据key获取数据
+	Set(key string, val interface{})    // 根据key设置数据
+	Data() interface{}                  // 自定义数据
+	SetData(v interface{})              // 设置数据
+	Error() error                       // 错误信息,比如Timeout
+	SetError(err error)                 // 设置错误
+	Conn() anet.Conn                    // 原始Socket
+	Message() Packet                    // 消息
+	Send(msg interface{}) error         // 发送消息,不关心返回结果
+}
+
+// 消息路由
+// 消息类型上分为两种:
+// 一:客户端请求消息,Ack为false,回调函数通常静态注册
+// 二:服务器应答消息,Ack为true, 回调函数通常由调用Call时注册
+// 应用场景上分两种:
+// 一:普通的消息注册与查询
+// 二:代理请求,通常只需要根据规则转发,通常使用全局静态函数,但是需要上下文参数
 //
-// 静态回调函数原型:
-// 原型1: func(ctx Context) error
-// 原型2: func(ctx Context, req *Request) error
-// 原型3: func(ctx Context, req *Request, rsp *Response) error
-// 原型1需要手动解析,原型2,3需要反射,性能会有额外消耗
-// 原型3:系统会自动发送消息,但是如何确定消息的ID呢?
-// RPC回调原型:
-// rpc调用不需要Request信息,只通过SeqID查询
-// 原型1: func(rsp *Response) error
-// 原型2: func(ctx Context, rsp *Response) error
-//
-// 获取Endpoints信息
-// TODO:Router的实现还是笼统庞杂了,也许应该明确区分出来到底是使用哪种通信协议
+// 消息处理支持中间件,可用于异常处理,消息统计过滤,全局代理也可以使用中间件进行处理
 type Router interface {
-	// 注册消息回调
-	Register(callback interface{}, opts ...RegisterOption) error
-	// 注册RPC回调
-	RegisterRPC(req Packet) error
-	// Find 根据消息包,查询消息回调,可能是服务端响应,也可能是客户端RPC响应
-	Find(pkg Packet) (Handler, error)
-	Close() error
-}
-
-type RegisterOption func(o *RegisterOptions)
-type RegisterOptions struct {
-	Context context.Context
-	ID      uint   // 消息ID
-	Name    string // 消息名或方法名
-	Method  string // 调用方法名
-}
-
-// 重试回调函数,返回error则终止重试
-type RetryFunc func(req Packet, count int) error
-
-// rpc注册时需要用到的数据
-type CallInfo struct {
-	RetryCB  RetryFunc
-	Future   Future
-	Response interface{}
+	Use(middleware ...Middleware)
+	Handle(ctx Context) error
+	Register(cb interface{}, opts ...MiscOption) error
 }

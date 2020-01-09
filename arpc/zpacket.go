@@ -1,17 +1,30 @@
 package arpc
 
 import (
-	"time"
+	"fmt"
+	"strconv"
 
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
-type CommandType int
-
-const (
-	CmdMsg CommandType = 0 // 正常消息通信
+var (
+	// 可以外部启动前指定修改
+	IDMin = -100  // 最小消息ID,用于指定系统ID范围
+	IDMax = 65535 // 最大消息ID
 )
+
+type PacketFactory func() Packet
+
+var gPacketFactory PacketFactory
+
+func SetPacketFactory(fn PacketFactory) {
+	gPacketFactory = fn
+}
+
+func NewPacket() Packet {
+	return gPacketFactory()
+}
 
 type HeadFlag uint
 
@@ -19,14 +32,12 @@ const (
 	HFAck         HeadFlag = 0  // 标识是否是消息应答,bool
 	HFStatus               = 1  // 返回状态信息,空表示OK,string
 	HFContentType          = 2  // 编码协议,0表示使用默认双方约定的协议,int
-	HFCommand              = 3  // 服务器内部编码协议,int
-	HFSeqID                = 4  // RPC唯一ID,string,改用uint64?
-	HFMsgID                = 5  // 静态唯一消息ID
-	HFName                 = 6  // 消息名,string
-	HFMethod               = 7  // 调用方法名,string
-	HFService              = 8  // 调用服务名,string,和method合并成1个值?
-	HFHeadMap              = 9  // 自定义消息头,map[string]string
-	HFExtra                = 10 // 扩展字段,key<16
+	HFSeqID                = 3  // RPC唯一ID,string,改用uint64?
+	HFMsgID                = 4  // 静态唯一消息ID,非零值,负数表示系统消息,正数表示用户消息
+	HFNameMethod           = 5  // 编码格式,以/开始表示Method,否则表示消息名
+	HFService              = 6  // 调用服务名,string,和method合并成1个值?
+	HFHeadMap              = 7  // 自定义消息头,map[string]string
+	HFExtra                = 8  // 扩展字段,key<16
 	HFMax                  = 15 // 最大可用位数
 )
 
@@ -49,7 +60,7 @@ const HFExtraMask = ^uint16(1<<HFExtra - 1)
 // 编码格式:Flag[2byte]+Head+Body
 // Flag: 固定两个字节,每位标识对应的head是否有数据
 // Head:
-//	1:系统依赖必须的字段,类型固定:比如Ack,Status,ContentType,Command,SequenceID,ID,Name,Service,
+//	1:系统依赖必须的字段,类型固定:比如Ack,Status,ContentType,SequenceID,ID,Name,Method,Service,
 //	2:系统非必须但很常用,类型string:比如TraceID,SpanID,RemoteIP,UserID,Project,Auth,Checksum
 //  3:Key-Value类型Head:
 // Body:
@@ -59,7 +70,6 @@ const HFExtraMask = ^uint16(1<<HFExtra - 1)
 // Ack:是否是应答消息
 // Status:错误信息,status line格式,例如 "200 OK"
 // ContentType使用枚举形式,默认protobuf和json
-// Command:系统内控制命令,通常为0,表示消息通信,其他可用于HealthCheck等系统内预定义的命令
 // SeqID:唯一序列号,用于RPC调用,全局唯一
 // MsgID:消息静态唯一ID,不超过65535
 // Name :消息名
@@ -69,24 +79,20 @@ const HFExtraMask = ^uint16(1<<HFExtra - 1)
 // Head:附加参数,kv结构,更加灵活,但是消耗也会更多,key要求不能含有|
 //
 // 有几个特殊字段,不需要进行编码通信,仅仅用于系统内部调度
-// TTL,Retry:用于客户端RPC调用超时设置,也可用于服务器端当资源没有准备好时重试,超过一定次数则拒绝服务
-// Priority:用于Executor调度优先级
 // Internal:用于系统扩展,可以透传任意数据
 type Packet interface {
 	Reset()
 	IsAck() bool
 	SetAck(ack bool)
+	Code() int
 	Status() string
-	SetStatus(status string)
-	SetCodeStatus(code int, info string)
+	SetStatus(code int, info string)
 	ContentType() int
 	SetContentType(ct int)
-	Command() CommandType
-	SetCommand(CommandType)
 	SeqID() string
 	SetSeqID(id string)
-	MsgID() uint16
-	SetMsgID(id uint16)
+	MsgID() int
+	SetMsgID(id int)
 	Name() string
 	SetName(name string)
 	Method() string
@@ -106,29 +112,60 @@ type Packet interface {
 	// 不需要序列化字段
 	Internal() interface{}
 	SetInternal(interface{})
-	TTL() time.Duration
-	SetTTL(ttl time.Duration)
-	Retry() int
-	SetRetry(value int)
-	Priority() int
-	SetPriority(value int)
-	CallInfo() *CallInfo
-	SetCallInfo(info *CallInfo)
 	// 编解码接口
 	Encode(data *buffer.Buffer) error
 	Decode(data *buffer.Buffer) error
-	// 解析body
-	DecodeBody(msg interface{}) error
 }
 
-type PacketFactory func() Packet
-
-var gPacketFactory PacketFactory
-
-func SetDefaultPacketFactory(fn PacketFactory) {
-	gPacketFactory = fn
+// util help
+func DecodeBody(pkg Packet, msg interface{}) error {
+	decoder := pkg.Codec()
+	if decoder == nil {
+		return ErrNoCodec
+	}
+	if err := decoder.Decode(pkg.Buffer(), msg); err != nil {
+		return err
+	}
+	pkg.SetBody(msg)
+	return nil
 }
 
-func NewPacket() Packet {
-	return gPacketFactory()
+// 状态信息,使用空格分开,不单纯使用Code,因为字符串能返回一些调试信息
+// 空表示OK
+// Code 与http状态码保存一致
+type Status struct {
+	Code int
+	Info string
+}
+
+func (s *Status) Encode() string {
+	if s.Code == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d %s", s.Code, s.Info)
+}
+
+func (s *Status) Decode(text string) {
+	if len(text) == 0 {
+		s.Code = 0
+		s.Info = ""
+		return
+	}
+
+	for i, ch := range text {
+		if ch < '0' || ch > '9' {
+			if i == 0 {
+				s.Code = 0
+				s.Info = text
+			} else {
+				s.Code, _ = strconv.Atoi(text[:i-1])
+				s.Info = text[i:]
+			}
+			break
+		}
+	}
+}
+
+func IsValidID(id int) bool {
+	return id >= IDMin && id < IDMax
 }

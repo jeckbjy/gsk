@@ -114,14 +114,14 @@ func (s *service) Exit() {
 	}
 }
 
-func (s *service) Register(callback interface{}, opts ...arpc.RegisterOption) error {
+func (s *service) Register(callback interface{}, opts ...arpc.MiscOption) error {
 	return s.router.Register(callback, opts...)
 }
 
-func (s *service) Send(service string, req interface{}, opts ...arpc.CallOption) error {
+func (s *service) Send(service string, req interface{}, opts ...arpc.MiscOption) error {
 	return s.client.Send(service, req, opts...)
 }
 
-func (s *service) Call(service string, req interface{}, rsp interface{}, opts ...arpc.CallOption) error {
+func (s *service) Call(service string, req interface{}, rsp interface{}, opts ...arpc.MiscOption) error {
 	return s.client.Call(service, req, rsp, opts...)
 }

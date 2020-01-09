@@ -31,18 +31,9 @@
 - **selector** 客户端Load Balance
 - **broker** 消息队列接口
 - **store** kv存储
-- **db** 封装简单orm
+- **orm** 封装简单orm
 
 ## 示例代码
-
-## 依赖
-- [x/net](https://golang.org/x/net/ipv4)  
-  当无法下载时,可以使用下边的方法:
-``` go
-mkdir -p $GOPATH/src/golang.org/x
-cd $GOPATH/src/golang.org/x
-git clone https://github.com/golang/net.git
-```
 
 ## 集成或参考的第三方库
 - [go-micro](https://github.com/micro/go-micro)

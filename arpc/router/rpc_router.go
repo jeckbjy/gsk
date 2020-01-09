@@ -1,241 +1,190 @@
 package router
 
 import (
-	"errors"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/jeckbjy/gsk/arpc"
-)
-
-var (
-	ErrInvalidResponse = errors.New("invalid response")
-	ErrInvalidFuture   = errors.New("invalid future")
-	ErrInvalidHandler  = errors.New("invalid handler")
-	ErrNotSupport      = errors.New("not support")
-	ErrHasStopped      = errors.New("has stopped")
-)
-
-const (
-	statusIdle = 0
-	statusRun  = 1
-	statusStop = 2
+	"github.com/jeckbjy/gsk/util/timex"
 )
 
 type _RpcInfo struct {
-	Handler  arpc.Handler   // 消息回调
-	Request  arpc.Packet    // 发送的请求
-	Info     *arpc.CallInfo // 配置信息
-	Expire   int64          // 过期时间
-	RetryNum int            // 当前重试次数
+	Handler arpc.Handler   // 消息回调
+	Request arpc.Packet    // 发送的请求
+	Data    interface{}    // 需要透传的数据
+	Timer   *timex.Timer   // 定时器
+	Retry   arpc.RetryFunc // 重试函数
 }
 
-type _RpcRouter struct {
-	infos  map[string]*_RpcInfo
-	status int
-	mux    sync.Mutex
+type RpcRouter struct {
+	mux   sync.Mutex
+	infos map[string]*_RpcInfo
 }
 
-func (r *_RpcRouter) Init() {
+func (r *RpcRouter) Init() {
 	r.infos = make(map[string]*_RpcInfo)
 }
 
-func (r *_RpcRouter) Find(pkg arpc.Packet) (arpc.Handler, error) {
-	// find and delete
+func (r *RpcRouter) Handle(ctx arpc.Context) arpc.Handler {
+	pkg := ctx.Message()
 	r.mux.Lock()
-	i, ok := r.infos[pkg.SeqID()]
+	info, ok := r.infos[pkg.SeqID()]
 	if ok {
+		info.Timer.Stop()
 		delete(r.infos, pkg.SeqID())
 	}
 	r.mux.Unlock()
-	if i != nil && i.Handler != nil {
-		return i.Handler, nil
-	}
 
-	return nil, arpc.ErrNoHandler
+	if info != nil {
+		ctx.SetData(info.Data)
+		return info.Handler
+	} else { // 不存在也不需要报错
+		return nil
+	}
 }
 
-// 注册RPC回调,支持两种形式,Ptr同步阻塞调用,Func异步非阻塞调用
-func (r *_RpcRouter) Register(request arpc.Packet) error {
-	info := request.CallInfo()
-	future := info.Future
-	rsp := info.Response
-	v := reflect.ValueOf(rsp)
-	t := v.Type()
+func (r *RpcRouter) Register(request arpc.Packet) error {
+	opts := request.Internal().(*arpc.MiscOptions)
+	t := reflect.TypeOf(opts.Response)
 	switch t.Kind() {
 	case reflect.Ptr:
-		// 指针类型,阻塞同步回调
-		if t.Elem().Kind() != reflect.Struct {
-			return ErrInvalidResponse
-		}
+		return r.registerSync(request, opts, t)
+	case reflect.Func:
+		return r.registerAsync(request, opts)
+	default:
+		return arpc.ErrNotSupport
+	}
+}
 
-		if future == nil {
-			return ErrInvalidFuture
+// 同步调用,必须有Future
+func (r *RpcRouter) registerSync(req arpc.Packet, opts *arpc.MiscOptions, t reflect.Type) error {
+	// 指针类型,阻塞同步回调
+	if t.Elem().Kind() != reflect.Struct {
+		return arpc.ErrInvalidResponse
+	}
+
+	if opts.Future == nil {
+		return arpc.ErrInvalidFuture
+	}
+
+	handler := func(ctx arpc.Context) error {
+		err := arpc.DecodeBody(ctx.Message(), opts.Response)
+		opts.Future.Done(err)
+		return err
+	}
+
+	return r.add(req, opts, handler)
+}
+
+// 异步调用,没必要使用Future,故必须为nil
+// 支持的原型有
+// 原型1: func(ctx Context) error
+// 原型2: func(rsp *Response) error
+// 原型3: func(ctx Context, rsp *Response) error
+func (r *RpcRouter) registerAsync(request arpc.Packet, opts *arpc.MiscOptions) error {
+	if opts.Future != nil {
+		return arpc.ErrInvalidFuture
+	}
+
+	// arpc.Handler,完全需要用户自己托管
+	if handler, ok := opts.Response.(arpc.Handler); ok {
+		return r.add(request, opts, handler)
+	}
+
+	v := reflect.ValueOf(opts.Response)
+	t := v.Type()
+
+	switch t.NumIn() {
+	case 1: // func(rsp *Response) error
+		if !isMessage(t.In(0)) || t.NumOut() != 1 || !isError(t.Out(0)) {
+			return arpc.ErrInvalidHandler
 		}
 
 		handler := func(ctx arpc.Context) error {
-			// 注意:这里需要调用Request
-			err := ctx.Message().DecodeBody(rsp)
-			future.Done(err)
-			return err
-		}
-		return r.add(handler, request)
-	case reflect.Func:
-		// 传入的是函数指针,暗示非阻塞调用
-		// 函数原型1:
-		// func(*XXXResponse) error
-		// func(arpc.Context, *XXXResponse) error
-		switch t.NumIn() {
-		case 1:
-			if arpc.IsContext(t.In(0)) {
-				return ErrInvalidHandler
-			}
-			p0 := t.In(0)
-			if p0.Kind() != reflect.Ptr || p0.Elem().Kind() != reflect.Struct {
-				return ErrInvalidHandler
-			}
-
-			// 返回值需要是error
-			if t.NumOut() != 1 || !arpc.IsError(t.Out(0)) {
-				return ErrInvalidHandler
-			}
-
-			handler := func(ctx arpc.Context) error {
-				msg := reflect.New(p0.Elem())
-
-				err := ctx.Message().DecodeBody(msg.Interface())
-				if err == nil {
-					in := []reflect.Value{msg}
-					out := v.Call(in)
-					if !out[0].IsNil() {
-						err = out[0].Interface().(error)
-					}
+			msg := ctx.Message()
+			if msg.Body() == nil {
+				if err := arpc.DecodeBody(msg, reflect.New(t.In(0).Elem()).Interface()); err != nil {
+					return err
 				}
+			}
 
-				if future != nil {
-					future.Done(err)
-				}
-
+			in := []reflect.Value{reflect.ValueOf(msg.Body())}
+			out := v.Call(in)
+			if !out[0].IsNil() {
+				err := out[0].Interface().(error)
 				return err
 			}
-
-			return r.add(handler, request)
-		case 2:
-			if !arpc.IsContext(t.In(0)) {
-				return ErrInvalidHandler
-			}
-
-			p1 := t.In(1)
-			if p1.Kind() != reflect.Ptr || p1.Elem().Kind() != reflect.Struct {
-				return ErrInvalidHandler
-			}
-
-			// 返回值需要是error
-			if t.NumOut() != 1 || arpc.IsError(t.Out(0)) {
-				return ErrInvalidHandler
-			}
-
-			handler := func(ctx arpc.Context) error {
-				msg := reflect.New(p1.Elem())
-				err := ctx.Message().DecodeBody(msg.Interface())
-				if err == nil {
-					in := []reflect.Value{reflect.ValueOf(ctx), msg}
-					out := v.Call(in)
-					if !out[0].IsNil() {
-						err = out[0].Interface().(error)
-					}
-				}
-
-				if future != nil {
-					future.Done(err)
-				}
-
-				return nil
-			}
-
-			return r.add(handler, request)
-		default:
-			return ErrInvalidHandler
+			return nil
 		}
 
+		return r.add(request, opts, handler)
+	case 2: // func(ctx Context, rsp *Response) error
+		if !isContext(t.In(0)) || !isMessage(t.In(1)) || t.NumOut() != 1 || !isError(t.Out(0)) {
+			return arpc.ErrInvalidHandler
+		}
+
+		handler := func(ctx arpc.Context) error {
+			msg := ctx.Message()
+			if msg.Body() == nil {
+				if err := arpc.DecodeBody(msg, reflect.New(t.In(1).Elem()).Interface()); err != nil {
+					return err
+				}
+			}
+
+			in := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(msg.Body())}
+			out := v.Call(in)
+			if !out[0].IsNil() {
+				err := out[0].Interface().(error)
+				return err
+			}
+			return nil
+		}
+
+		return r.add(request, opts, handler)
 	default:
-		return ErrNotSupport
+		return arpc.ErrInvalidHandler
 	}
 }
 
-func (r *_RpcRouter) add(handler arpc.Handler, req arpc.Packet) error {
-	var err error
+func (r *RpcRouter) add(req arpc.Packet, opts *arpc.MiscOptions, handler arpc.Handler) error {
 	r.mux.Lock()
-	if r.status != statusStop {
-		future := req.CallInfo().Future
-		if future != nil {
-			// auto add one
-			future.Add()
-		}
-		expired := time.Now().Add(req.TTL()).UnixNano() / int64(time.Millisecond)
-		info := &_RpcInfo{
-			Handler:  handler,
-			Request:  req,
-			Expire:   expired,
-			RetryNum: 0,
-		}
-		r.infos[req.SeqID()] = info
-		if r.status == statusIdle {
-			// lazy start
-			r.status = statusRun
-			go r.Run()
-		}
-	} else {
-		err = ErrHasStopped
+	if opts.Future != nil {
+		opts.Future.Add()
 	}
 
+	info := &_RpcInfo{Handler: handler, Request: req, Data: opts.Extra}
+	r.infos[req.SeqID()] = info
+	timer := timex.NewDelayTimer(opts.TTL, func() {
+		r.onTimeout(req.SeqID())
+	})
+	info.Timer = timer
+
 	r.mux.Unlock()
-	return err
+	return nil
 }
 
-func (r *_RpcRouter) Close() {
+func (r *RpcRouter) onTimeout(seqID string) {
 	r.mux.Lock()
-	r.status = statusStop
-	r.mux.Unlock()
+	defer r.mux.Unlock()
+	if info, ok := r.infos[seqID]; ok {
+		ttl := time.Duration(0)
+		if info.Retry != nil {
+			ttl = info.Retry(info.Request)
+		}
+
+		if ttl > 0 {
+			seqID := info.Request.SeqID()
+			info.Timer = timex.NewDelayTimer(ttl, func() {
+				r.onTimeout(seqID)
+			})
+		} else {
+			delete(r.infos, seqID)
+			// TODO:notify timeout for async callback, add onError callback?
+			opts := info.Request.Internal().(*arpc.MiscOptions)
+			if opts.Future != nil {
+				opts.Future.Done(arpc.ErrTimeout)
+			}
+		}
+	}
 }
-
-// TODO:检测过期
-func (r *_RpcRouter) Run() {
-
-}
-
-//func (r *RpcRouter) Run() {
-//	t := time.NewTicker(r.ticker)
-//	for ; true; <-t.C {
-//		now := times.Now()
-//		needExit := false
-//		r.mux.Lock()
-//		needExit = r.status == statusStop
-//		// TODO:小顶堆优化?避免全部遍历同时还可以快速查询??
-//		for k, v := range r.replies {
-//			if v.Deadline >= now {
-//				v.RetryNum++
-//				delete(r.replies, k)
-//				if v.RetryCB != nil && v.RetryNum < v.RetryMax {
-//					seqID, ttl, err := v.RetryCB(v.RetryNum)
-//					if err == nil {
-//						v.SeqID = seqID
-//						v.Deadline = now + int64(time.Millisecond*ttl)
-//						r.replies[seqID] = v
-//					} else {
-//						_ = v.Future.Fail(err)
-//					}
-//				} else {
-//					_ = v.Future.Fail(arpc.ErrTimeout)
-//				}
-//			}
-//		}
-//		r.mux.Unlock()
-//
-//		if needExit {
-//			break
-//		}
-//	}
-//}
-//

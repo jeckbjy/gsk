@@ -3,13 +3,12 @@ package gsk
 import (
 	"context"
 
-	"github.com/jeckbjy/gsk/arpc/filter/log"
-
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/arpc/client"
 	"github.com/jeckbjy/gsk/arpc/filter/fexec"
 	"github.com/jeckbjy/gsk/arpc/filter/fframe"
+	"github.com/jeckbjy/gsk/arpc/filter/log"
 	"github.com/jeckbjy/gsk/arpc/server"
 	"github.com/jeckbjy/gsk/broker"
 	"github.com/jeckbjy/gsk/exec"
@@ -19,7 +18,7 @@ import (
 )
 
 func newOptions(name string, opts ...Option) *Options {
-	o := &Options{Context: context.Background(), Name: name, Router: arpc.DefaultRouter()}
+	o := &Options{Context: context.Background(), Name: name, Router: arpc.GetRouter()}
 	for _, fn := range opts {
 		fn(o)
 	}
@@ -35,7 +34,6 @@ func newOptions(name string, opts ...Option) *Options {
 		ef := fexec.New(
 			fexec.Router(o.Router),
 			fexec.Executor(o.Exec),
-			fexec.Middlewares(o.Middleware),
 		)
 		tran.AddFilters(fframe.New(), log.New(), ef)
 	} else {
@@ -89,7 +87,6 @@ type Options struct {
 	Selector    selector.Selector
 	Exec        exec.Executor
 	Filters     []anet.Filter
-	Middleware  []arpc.Middleware
 	Name        string
 	Id          string
 	Address     string
@@ -148,12 +145,6 @@ func Executor(e exec.Executor) Option {
 func Filter(f ...anet.Filter) Option {
 	return func(o *Options) {
 		o.Filters = f
-	}
-}
-
-func Middleware(m ...arpc.Middleware) Option {
-	return func(o *Options) {
-		o.Middleware = m
 	}
 }
 

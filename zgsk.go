@@ -4,7 +4,6 @@ import (
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/anet/tcp"
 	"github.com/jeckbjy/gsk/arpc"
-	"github.com/jeckbjy/gsk/arpc/handler"
 	"github.com/jeckbjy/gsk/arpc/packet"
 	"github.com/jeckbjy/gsk/arpc/router"
 	"github.com/jeckbjy/gsk/codec"
@@ -33,9 +32,9 @@ func init() {
 
 	exec.SetDefault(simple.New())
 	anet.SetDefault(tcp.New)
-	arpc.SetDefaultRouter(router.New())
-	arpc.SetDefaultPacketFactory(packet.New)
-	arpc.SetDefaultContextFactory(handler.NewContext)
+	arpc.SetRouter(router.New())
+	arpc.SetContextFactory(router.NewContext)
+	arpc.SetPacketFactory(packet.New)
 }
 
 // 强制要求提供服务名
@@ -51,7 +50,7 @@ type Service interface {
 	Name() string
 	Run() error
 	Exit()
-	Register(callback interface{}, opts ...arpc.RegisterOption) error
-	Send(service string, req interface{}, opts ...arpc.CallOption) error
-	Call(service string, req interface{}, rsp interface{}, opts ...arpc.CallOption) error
+	Register(callback interface{}, opts ...arpc.MiscOption) error
+	Send(service string, req interface{}, opts ...arpc.MiscOption) error
+	Call(service string, req interface{}, rsp interface{}, opts ...arpc.MiscOption) error
 }

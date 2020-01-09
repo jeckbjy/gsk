@@ -4,45 +4,56 @@ import (
 	"github.com/jeckbjy/gsk/arpc"
 )
 
-func init() {
-	arpc.SetDefaultRouter(New())
-}
-
 func New() arpc.Router {
 	r := &Router{}
-	r.msg.Init()
 	r.rpc.Init()
+	r.msg.Init()
 	return r
 }
 
+// 默认的消息路由
 type Router struct {
-	msg _MsgRouter
-	rpc _RpcRouter
+	middleware []arpc.Middleware
+	rpc        RpcRouter
+	msg        MsgRouter
 }
 
-// 查询消息回调
-func (r *Router) Find(pkg arpc.Packet) (arpc.Handler, error) {
-	if pkg.IsAck() && pkg.SeqID() != "" {
-		return r.rpc.Find(pkg)
+func (r *Router) Use(middleware ...arpc.Middleware) {
+	r.middleware = append(r.middleware, middleware...)
+}
+
+// 处理消息
+func (r *Router) Handle(ctx arpc.Context) error {
+	var handler arpc.Handler
+	pkg := ctx.Message()
+	if pkg.IsAck() {
+		handler = r.rpc.Handle(ctx)
 	} else {
-		return r.msg.Find(pkg)
-	}
-}
-
-func (r *Router) Register(srv interface{}, opts ...arpc.RegisterOption) error {
-	o := arpc.RegisterOptions{}
-	for _, fn := range opts {
-		fn(&o)
+		handler = r.msg.Handle(ctx)
 	}
 
-	return r.msg.Register(srv, &o)
+	return r.invoke(ctx, handler)
 }
 
-func (r *Router) RegisterRPC(req arpc.Packet) error {
-	return r.rpc.Register(req)
+func (r *Router) invoke(ctx arpc.Context, handler arpc.Handler) error {
+	h := handler
+	for i := len(r.middleware) - 1; i >= 0; i-- {
+		h = r.middleware[i](h)
+	}
+
+	if h == nil {
+		return arpc.ErrNoHandler
+	}
+
+	return h(ctx)
 }
 
-func (r *Router) Close() error {
-	r.rpc.Close()
-	return nil
+func (r *Router) Register(cb interface{}, opts ...arpc.MiscOption) error {
+	if pkg, ok := cb.(arpc.Packet); ok {
+		return r.rpc.Register(pkg)
+	} else {
+		o := arpc.MiscOptions{}
+		o.Init(opts...)
+		return r.msg.Register(cb, &o)
+	}
 }

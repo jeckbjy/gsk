@@ -6,31 +6,31 @@ import (
 	"github.com/jeckbjy/gsk/arpc"
 )
 
-type Task struct {
-	pool       *sync.Pool
-	ctx        arpc.Context
-	handler    arpc.Handler
-	middleware []arpc.Middleware
+var gTaskPool = sync.Pool{
+	New: func() interface{} {
+		return &Task{}
+	},
 }
 
-func (t *Task) Init(ctx arpc.Context, handler arpc.Handler, middleware []arpc.Middleware) {
+func newTask(ctx arpc.Context, router arpc.Router) *Task {
+	task := gTaskPool.Get().(*Task)
+	task.Init(ctx, router)
+	return task
+}
+
+type Task struct {
+	ctx    arpc.Context
+	router arpc.Router
+}
+
+func (t *Task) Init(ctx arpc.Context, router arpc.Router) {
 	t.ctx = ctx
-	t.handler = handler
-	t.middleware = middleware
+	t.router = router
 }
 
 func (t *Task) Run() error {
-	err := invoke(t.ctx, t.handler, t.middleware)
-	t.pool.Put(t)
+	err := t.router.Handle(t.ctx)
 	t.ctx.Free()
+	gTaskPool.Put(t)
 	return err
-}
-
-func invoke(ctx arpc.Context, handler arpc.Handler, middleware []arpc.Middleware) error {
-	h := handler
-	for i := len(middleware) - 1; i >= 0; i-- {
-		h = middleware[i](h)
-	}
-
-	return h(ctx)
 }

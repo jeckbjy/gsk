@@ -3,7 +3,12 @@ package randx
 import (
 	"math/rand"
 	"sort"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // 根据权重随机,返回索引和随机值
 func Weighted(n int, fn func(int) int) (int, int) {

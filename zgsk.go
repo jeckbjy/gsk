@@ -33,6 +33,7 @@ func init() {
 	exec.SetDefault(simple.New())
 	anet.SetDefault(tcp.New)
 	arpc.SetRouter(router.New())
+	arpc.SetIDProvider(router.NewIDProvider())
 	arpc.SetContextFactory(router.NewContext)
 	arpc.SetPacketFactory(packet.New)
 }

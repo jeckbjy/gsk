@@ -2,7 +2,6 @@ package arpc
 
 import (
 	"errors"
-	"time"
 )
 
 var (
@@ -14,10 +13,7 @@ var (
 	ErrInvalidResponse = errors.New("invalid response")
 	ErrInvalidFuture   = errors.New("invalid future")
 	ErrTimeout         = errors.New("timeout")
-)
-
-const (
-	DefaultTimeout = time.Second * 15
+	ErrNotFoundID      = errors.New("not found id")
 )
 
 type Server interface {

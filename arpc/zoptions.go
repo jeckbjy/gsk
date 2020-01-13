@@ -9,6 +9,10 @@ import (
 	"github.com/jeckbjy/gsk/selector"
 )
 
+const (
+	DefaultTTL = time.Second * 15
+)
+
 // 用于创建Server和Client
 type Option func(o *Options)
 type Options struct {
@@ -42,6 +46,7 @@ type MiscOptions struct {
 }
 
 func (o *MiscOptions) Init(opts ...MiscOption) {
+	o.TTL = DefaultTTL
 	for _, fn := range opts {
 		fn(o)
 	}

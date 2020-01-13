@@ -22,14 +22,15 @@ func NewContext() arpc.Context {
 type Context struct {
 	arrmap.StringMap
 	conn anet.Conn
-	msg  arpc.Packet
+	req  arpc.Packet
+	rsp  arpc.Packet
 	data interface{}
 	err  error
 }
 
 func (c *Context) Init(conn anet.Conn, msg arpc.Packet) {
 	c.conn = conn
-	c.msg = msg
+	c.req = msg
 	c.data = nil
 	c.err = nil
 }
@@ -59,7 +60,15 @@ func (c *Context) Conn() anet.Conn {
 }
 
 func (c *Context) Message() arpc.Packet {
-	return c.msg
+	return c.req
+}
+
+func (c *Context) Response() arpc.Packet {
+	return c.rsp
+}
+
+func (c *Context) SetResponse(rsp arpc.Packet) {
+	c.rsp = rsp
 }
 
 func (c *Context) Send(msg interface{}) error {

@@ -15,13 +15,14 @@
 * 协议上的差异,gRPC使用的是http2,这里使用的是tcp
 
 ## 特性与设计准则
-* 接口设计,易于扩展
+* 接口设计,易于扩展和理解
 * 异步网络,高性能
+  - 默认提供基于原生tcp+读写goroutine的实现方案
+  - 尝试性提供nio方案,更加高效,更节省内存
 * 开箱即用,易上手
-  - 每个接口都会提供一个默认实现,但不一定最高效
+  - 每个接口都会提供一个默认实现,但不一定最高效,需要通过Plugin来提供高效的实现
 * 轻度依赖,易集成
-  - 原则上尽量只依赖标准库,对于一些小的第三方库,直接集成在代码中,比较庞大的第三方库尽量放到plugin中实现,
-  目前额外依赖了golang.org/x/net/ipv4
+  - 原则上尽量只依赖标准库,对于一些小的第三方库,直接集成在代码中,比较庞大的第三方库尽量放到plugin中实现
 
 ## 核心模块
 - **anet** 异步网络底层(asynchronous network),参考netty
@@ -47,6 +48,7 @@
 - [mergo](https://github.com/imdario/mergo)
 - [base58](https://github.com/mr-tron/base58)
 - [fsnotify](https://github.com/fsnotify/fsnotify)
+- [gommon](https://github.com/labstack/gommon)
 
 ## 其他资料
 - [Functional Options Pattern in Go](https://halls-of-valhalla.org/beta/articles/functional-options-pattern-in-go,54/)

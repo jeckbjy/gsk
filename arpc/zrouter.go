@@ -7,6 +7,7 @@ import (
 )
 
 var gContextFactory ContextFactory
+var gIDProvider IDProvider
 var gRouter atomic.Value
 
 func SetContextFactory(fn ContextFactory) {
@@ -23,6 +24,14 @@ func SetRouter(r Router) {
 
 func GetRouter() Router {
 	return gRouter.Load().(Router)
+}
+
+func SetIDProvider(p IDProvider) {
+	gIDProvider = p
+}
+
+func GetIDProvider() IDProvider {
+	return gIDProvider
 }
 
 // Handler 消息回调处理函数
@@ -45,6 +54,8 @@ type Context interface {
 	SetError(err error)                 // 设置错误
 	Conn() anet.Conn                    // 原始Socket
 	Message() Packet                    // 消息
+	Response() Packet                   // 应答消息
+	SetResponse(rsp Packet)             // 按需设置Response
 	Send(msg interface{}) error         // 发送消息,不关心返回结果
 }
 
@@ -61,4 +72,22 @@ type Router interface {
 	Use(middleware ...Middleware)
 	Handle(ctx Context) error
 	Register(cb interface{}, opts ...MiscOption) error
+}
+
+// MessageID 用于通过反射识别消息是否提供了消息ID,从而避免通过Name映射查询ID
+// 接口函数可以使用工具自动生成代码
+type MessageID interface {
+	MsgID() int
+}
+
+// IDProvider 用于消息名和ID一一映射
+// 纯粹的RPC调用并不需要填充消息ID
+// 但如果是以MsgID作为唯一标识的情况下,需要提供MsgID才能保证客户端能够查询到消息回调
+// 在测试环境下,可以使用名字作为唯一标识,使用SetBindName设置绑定开关,默认false
+type IDProvider interface {
+	SetBindName(flag bool)
+	Register(name string, id int) error
+	GetID(name string) int
+	GetName(id int) string
+	Fill(packet Packet, msg interface{}) error
 }

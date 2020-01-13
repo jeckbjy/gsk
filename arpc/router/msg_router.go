@@ -127,27 +127,32 @@ func toHandler(v *reflect.Value, cb interface{}) (arpc.Handler, error) {
 	// TODO: 是否需要支持:func(ctx Context, req *XXRequest) error
 	// func(ctx Context, req *XXRequest, rsp *XXResponse) error
 	handler := func(ctx arpc.Context) error {
-		pkg := ctx.Message()
-		if pkg.Body() != nil {
-			if err := arpc.DecodeBody(pkg, reflect.New(t.In(0).Elem()).Interface()); err != nil {
+		req := ctx.Message()
+		if req.Body() != nil {
+			if err := arpc.DecodeBody(req, reflect.New(t.In(0).Elem()).Interface()); err != nil {
 				return err
 			}
 		}
 
-		rsp := reflect.New(t.In(2))
-
-		request := ctx.Message()
-		reply := arpc.NewPacket()
-		reply.SetSeqID(request.SeqID())
-		reply.SetBody(rsp)
-		in := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(pkg.Body()), rsp}
-		out := v.Call(in)
-		if !out[0].IsNil() {
-			err := out[0].Interface().(error)
-			reply.SetStatus(http.StatusInternalServerError, err.Error())
+		// auto create response
+		rsp := ctx.Response()
+		if rsp == nil {
+			msg := reflect.New(t.In(2))
+			rsp = arpc.NewPacket()
+			rsp.SetSeqID(req.SeqID())
+			rsp.SetBody(rsp)
+			_ = arpc.GetIDProvider().Fill(rsp, msg)
 		}
 
-		return ctx.Send(reply)
+		in := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(req.Body()), reflect.ValueOf(rsp.Body())}
+		out := v.Call(in)
+		if !out[0].IsNil() {
+			// TODO: 解析返回错误
+			err := out[0].Interface().(error)
+			rsp.SetStatus(http.StatusInternalServerError, err.Error())
+		}
+
+		return ctx.Send(rsp)
 	}
 
 	return handler, nil

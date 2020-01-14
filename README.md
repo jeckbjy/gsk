@@ -49,6 +49,7 @@
 - [base58](https://github.com/mr-tron/base58)
 - [fsnotify](https://github.com/fsnotify/fsnotify)
 - [gommon](https://github.com/labstack/gommon)
+- [dateparse](https://github.com/araddon/dateparse)
 
 ## 其他资料
 - [Functional Options Pattern in Go](https://halls-of-valhalla.org/beta/articles/functional-options-pattern-in-go,54/)

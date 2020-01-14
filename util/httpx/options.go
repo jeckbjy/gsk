@@ -21,7 +21,7 @@ type IBackOff interface {
 
 // 用于业务层判断是否需要继续Retry
 // 返回true则继续retry,false则不再retry
-type RetryFunc func(rsp *Response, err error) bool
+type RetryFunc func(rsp *http.Response, err error) bool
 
 type Option func(o *Options)
 type Options struct {

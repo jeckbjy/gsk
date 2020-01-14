@@ -28,12 +28,7 @@ const (
 	UTF8 = "utf-8"
 )
 
-type (
-	Request  = http.Request
-	Response = http.Response
-)
-
-func New(client *http.Client) Client {
+func NewClient(client *http.Client) Client {
 	if client == nil {
 		// default timeout?
 		// https://medium.com/@nate510/don-t-use-go-s-default-http-client-4804cb19f779
@@ -55,7 +50,7 @@ type Client struct {
 }
 
 // Post 自动编码req和自动解码result,如果为nil,则自动忽略
-func (c *Client) Post(url string, req interface{}, result interface{}, opts ...Option) (*Response, error) {
+func (c *Client) Post(url string, req interface{}, result interface{}, opts ...Option) (*http.Response, error) {
 	o := Options{}
 	o.init(opts...)
 	o.result = result
@@ -77,7 +72,7 @@ func (c *Client) Post(url string, req interface{}, result interface{}, opts ...O
 	return c.Do(request, &o)
 }
 
-func (c *Client) Get(url string, result interface{}, opts ...Option) (*Response, error) {
+func (c *Client) Get(url string, result interface{}, opts ...Option) (*http.Response, error) {
 	o := Options{}
 	o.init(opts...)
 	o.result = result
@@ -88,7 +83,7 @@ func (c *Client) Get(url string, result interface{}, opts ...Option) (*Response,
 	return c.Do(req, &o)
 }
 
-func (c *Client) Do(req *Request, opts *Options) (*Response, error) {
+func (c *Client) Do(req *http.Request, opts *Options) (*http.Response, error) {
 	if opts.BackOff != nil {
 		opts.BackOff.Reset()
 	}
@@ -164,7 +159,7 @@ func (c *Client) encode(contentType string, data interface{}) (io.ReadCloser, er
 	return nil, nil
 }
 
-func (c *Client) decode(rsp *Response, contentType string, result interface{}) error {
+func (c *Client) decode(rsp *http.Response, contentType string, result interface{}) error {
 	if val := rsp.Header.Get("Content-Type"); len(val) != 0 {
 		ct, _ := ParseContentType(val)
 		contentType = ct

@@ -48,24 +48,30 @@ func (l *Logger) Level() Level {
 	return l.level
 }
 
+func (l *Logger) SetLevel(lv Level) {
+	l.mux.Lock()
+	l.level = lv
+	l.mux.Unlock()
+}
+
 func (l *Logger) Formatter() Formatter {
 	return l.formatter
+}
+
+func (l *Logger) SetFormatter(f Formatter) {
+	l.mux.Lock()
+	l.formatter = f
+	l.mux.Unlock()
 }
 
 func (l *Logger) Max() int {
 	return l.max
 }
 
-func (l *Logger) SetLevel(lv Level) {
+func (l *Logger) SetMax(max int) {
 	l.mux.Lock()
-	defer l.mux.Unlock()
-	l.level = lv
-}
-
-func (l *Logger) SetFormatter(f Formatter) {
-	l.mux.Lock()
-	defer l.mux.Unlock()
-	l.formatter = f
+	l.max = max
+	l.mux.Unlock()
 }
 
 func (l *Logger) AddField(key, value string) {

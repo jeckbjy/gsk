@@ -2,6 +2,7 @@
 
 ## 客户端
 client封装了http操作,可以通过反射自动解析数据,支持retry
+很多第三方api都是基于http请求进行交互,比如login,iap,push等功能,可以配合crypto的Signature进行签名和验签
 
 ## 服务器
 服务器基于[echo](https://github.com/labstack/echo),

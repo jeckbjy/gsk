@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/jeckbjy/gsk/db/driver"
+	"github.com/jeckbjy/gsk/orm/driver"
 )
 
 func init() {

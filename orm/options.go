@@ -1,6 +1,6 @@
-package db
+package orm
 
-import "github.com/jeckbjy/gsk/db/driver"
+import "github.com/jeckbjy/gsk/orm/driver"
 
 type OpenOption func(options *driver.OpenOptions)
 type IndexOption func(options *driver.IndexOptions)

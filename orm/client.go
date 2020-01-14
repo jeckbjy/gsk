@@ -1,7 +1,7 @@
-package db
+package orm
 
 import (
-	"github.com/jeckbjy/gsk/db/driver"
+	"github.com/jeckbjy/gsk/orm/driver"
 )
 
 func New(driverName string, opts ...OpenOption) (*Client, error) {

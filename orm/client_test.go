@@ -1,10 +1,10 @@
-package db
+package orm
 
 import (
 	"testing"
 	"time"
 
-	_ "github.com/jeckbjy/gsk/db/sql"
+	_ "github.com/jeckbjy/gsk/orm/sql"
 )
 
 func TestClient(t *testing.T) {

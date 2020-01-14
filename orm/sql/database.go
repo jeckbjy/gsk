@@ -3,7 +3,7 @@ package sql
 import (
 	"database/sql"
 
-	"github.com/jeckbjy/gsk/db/driver"
+	"github.com/jeckbjy/gsk/orm/driver"
 )
 
 type sqlDB struct {

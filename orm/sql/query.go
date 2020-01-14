@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jeckbjy/gsk/db/driver"
+	"github.com/jeckbjy/gsk/orm/driver"
 )
 
 func toWhere(cond driver.Cond) (string, error) {

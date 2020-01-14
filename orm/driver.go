@@ -1,6 +1,6 @@
-package db
+package orm
 
-import "github.com/jeckbjy/gsk/db/driver"
+import "github.com/jeckbjy/gsk/orm/driver"
 
 type Index = driver.Index
 type Cond = driver.Cond

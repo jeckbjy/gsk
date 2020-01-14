@@ -1,6 +1,6 @@
-package db
+package orm
 
-import "github.com/jeckbjy/gsk/db/driver"
+import "github.com/jeckbjy/gsk/orm/driver"
 
 func Eq(key string, value interface{}) Cond {
 	return &expr{op: driver.TOK_EQ, key: key, val: value}

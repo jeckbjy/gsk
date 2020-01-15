@@ -13,7 +13,7 @@ func TestCmd(t *testing.T) {
 
 	app := New()
 	_ = app.Add(&testCmd{})
-	result, _ := app.Exec(args, map[string]string{"project": "Apollo"})
+	result, _ := app.Exec(args, Map{"project": "Apollo"})
 	t.Log(result)
 }
 

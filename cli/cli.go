@@ -41,6 +41,8 @@ type Command interface {
 	Run(ctx Context) error
 }
 
+type Map = map[string]string
+
 // Engine 用于管理所有Command信息
 // List只返回所有可执行的Command
 // Tree会以树状的形式组织Command,只有叶节点可以执行
@@ -48,7 +50,7 @@ type Engine interface {
 	List() []Command
 	Tree() []Command
 	Add(action Action, opts ...Option) error
-	Exec(args []string, metas map[string]string) (interface{}, error)
+	Exec(args []string, metas Map) (interface{}, error)
 }
 
 // New 创建Engine

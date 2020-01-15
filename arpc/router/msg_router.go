@@ -10,7 +10,7 @@ import (
 )
 
 type _MsgInfo struct {
-	Handler arpc.Handler
+	Handler arpc.HandlerFunc
 	Extra   interface{}
 }
 
@@ -24,7 +24,7 @@ func (r *MsgRouter) Init() {
 	r.dict = make(map[string]*_MsgInfo)
 }
 
-func (r *MsgRouter) Handle(ctx arpc.Context) arpc.Handler {
+func (r *MsgRouter) Handle(ctx arpc.Context) arpc.HandlerFunc {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
@@ -108,9 +108,9 @@ func (r *MsgRouter) Register(cb interface{}, o *arpc.MiscOptions) error {
 	return err
 }
 
-func toHandler(v *reflect.Value, cb interface{}) (arpc.Handler, error) {
+func toHandler(v *reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
 	// func(ctx Context) error
-	if handler, ok := cb.(arpc.Handler); ok {
+	if handler, ok := cb.(arpc.HandlerFunc); ok {
 		return handler, nil
 	}
 

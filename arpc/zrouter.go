@@ -35,10 +35,8 @@ func GetIDProvider() IDProvider {
 }
 
 // Handler 消息回调处理函数
-type Handler func(ctx Context) error
-
-// Middleware 中间件,next可能为nil,即找不到handler
-type Middleware func(next Handler) Handler
+type HandlerFunc func(ctx Context) error
+type HandlerChain []HandlerFunc
 
 type ContextFactory func() Context
 
@@ -52,11 +50,16 @@ type Context interface {
 	SetData(v interface{})              // 设置数据
 	Error() error                       // 错误信息,比如Timeout
 	SetError(err error)                 // 设置错误
+	Handler() HandlerFunc               // 获取最终要执行的回调,可能为nil
+	SetHandler(h HandlerFunc)           // 设置Handler
+	SetMiddleware(h HandlerChain)       // 设置Middleware
 	Conn() anet.Conn                    // 原始Socket
 	Message() Packet                    // 消息
 	Response() Packet                   // 应答消息
 	SetResponse(rsp Packet)             // 按需设置Response
 	Send(msg interface{}) error         // 发送消息,不关心返回结果
+	Abort(err error)                    // 手动中止调用
+	Next() error                        // 调用下一个，返回错误则自动中止
 }
 
 // 消息路由
@@ -69,7 +72,7 @@ type Context interface {
 //
 // 消息处理支持中间件,可用于异常处理,消息统计过滤,全局代理也可以使用中间件进行处理
 type Router interface {
-	Use(middleware ...Middleware)
+	Use(middleware ...HandlerFunc)
 	Handle(ctx Context) error
 	Register(cb interface{}, opts ...MiscOption) error
 }

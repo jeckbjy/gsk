@@ -1,17 +1,19 @@
 package router
 
 import (
+	"math"
 	"sync"
-
-	"github.com/jeckbjy/gsk/util/container/arrmap"
 
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
+	"github.com/jeckbjy/gsk/util/container/arrmap"
 )
+
+const abortIndex int8 = math.MaxInt8 / 2
 
 var gContextPool = sync.Pool{
 	New: func() interface{} {
-		return &Context{}
+		return &Context{index: -1}
 	},
 }
 
@@ -21,18 +23,25 @@ func NewContext() arpc.Context {
 
 type Context struct {
 	arrmap.StringMap
-	conn anet.Conn
-	req  arpc.Packet
-	rsp  arpc.Packet
-	data interface{}
-	err  error
+	handler arpc.HandlerFunc
+	chain   arpc.HandlerChain
+	conn    anet.Conn
+	req     arpc.Packet
+	rsp     arpc.Packet
+	data    interface{}
+	err     error
+	index   int8
 }
 
 func (c *Context) Init(conn anet.Conn, msg arpc.Packet) {
 	c.conn = conn
 	c.req = msg
+	c.handler = nil
+	c.chain = nil
+	c.rsp = nil
 	c.data = nil
 	c.err = nil
+	c.index = -1
 }
 
 func (c *Context) Free() {
@@ -73,4 +82,41 @@ func (c *Context) SetResponse(rsp arpc.Packet) {
 
 func (c *Context) Send(msg interface{}) error {
 	return c.conn.Send(msg)
+}
+
+func (c *Context) Handler() arpc.HandlerFunc {
+	return c.handler
+}
+
+func (c *Context) SetHandler(h arpc.HandlerFunc) {
+	c.handler = h
+}
+
+func (c *Context) SetMiddleware(hc arpc.HandlerChain) {
+	c.chain = hc
+}
+
+func (c *Context) Abort(err error) {
+	c.err = err
+	c.index = abortIndex
+}
+
+func (c *Context) Next() error {
+	c.index++
+	size := int8(len(c.chain))
+	for s := size + 1; c.index < s; c.index++ {
+		if c.index == size {
+			// 执行handler
+			if c.handler == nil {
+				return arpc.ErrNoHandler
+			}
+			return c.handler(c)
+		} else {
+			if err := c.chain[c.index](c); err != nil {
+				c.Abort(err)
+			}
+		}
+	}
+
+	return nil
 }

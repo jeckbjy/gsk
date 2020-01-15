@@ -10,11 +10,11 @@ import (
 )
 
 type _RpcInfo struct {
-	Handler arpc.Handler   // 消息回调
-	Request arpc.Packet    // 发送的请求
-	Data    interface{}    // 需要透传的数据
-	Timer   *timex.Timer   // 定时器
-	Retry   arpc.RetryFunc // 重试函数
+	Handler arpc.HandlerFunc // 消息回调
+	Request arpc.Packet      // 发送的请求
+	Data    interface{}      // 需要透传的数据
+	Timer   *timex.Timer     // 定时器
+	Retry   arpc.RetryFunc   // 重试函数
 }
 
 type RpcRouter struct {
@@ -26,7 +26,7 @@ func (r *RpcRouter) Init() {
 	r.infos = make(map[string]*_RpcInfo)
 }
 
-func (r *RpcRouter) Handle(ctx arpc.Context) arpc.Handler {
+func (r *RpcRouter) Handle(ctx arpc.Context) arpc.HandlerFunc {
 	pkg := ctx.Message()
 	r.mux.Lock()
 	info, ok := r.infos[pkg.SeqID()]
@@ -87,8 +87,8 @@ func (r *RpcRouter) registerAsync(request arpc.Packet, opts *arpc.MiscOptions) e
 		return arpc.ErrInvalidFuture
 	}
 
-	// arpc.Handler,完全需要用户自己托管
-	if handler, ok := opts.Response.(arpc.Handler); ok {
+	// 函数原型,完全需要用户自己处理
+	if handler, ok := opts.Response.(arpc.HandlerFunc); ok {
 		return r.add(request, opts, handler)
 	}
 
@@ -147,7 +147,7 @@ func (r *RpcRouter) registerAsync(request arpc.Packet, opts *arpc.MiscOptions) e
 	}
 }
 
-func (r *RpcRouter) add(req arpc.Packet, opts *arpc.MiscOptions, handler arpc.Handler) error {
+func (r *RpcRouter) add(req arpc.Packet, opts *arpc.MiscOptions, handler arpc.HandlerFunc) error {
 	r.mux.Lock()
 	if opts.Future != nil {
 		opts.Future.Add()

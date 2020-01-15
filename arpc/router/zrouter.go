@@ -13,18 +13,18 @@ func New() arpc.Router {
 
 // 默认的消息路由
 type Router struct {
-	middleware []arpc.Middleware
-	rpc        RpcRouter
-	msg        MsgRouter
+	handlers arpc.HandlerChain
+	rpc      RpcRouter
+	msg      MsgRouter
 }
 
-func (r *Router) Use(middleware ...arpc.Middleware) {
-	r.middleware = append(r.middleware, middleware...)
+func (r *Router) Use(middleware ...arpc.HandlerFunc) {
+	r.handlers = append(r.handlers, middleware...)
 }
 
 // 处理消息
 func (r *Router) Handle(ctx arpc.Context) error {
-	var handler arpc.Handler
+	var handler arpc.HandlerFunc
 	pkg := ctx.Message()
 	if pkg.IsAck() {
 		handler = r.rpc.Handle(ctx)
@@ -32,20 +32,9 @@ func (r *Router) Handle(ctx arpc.Context) error {
 		handler = r.msg.Handle(ctx)
 	}
 
-	return r.invoke(ctx, handler)
-}
-
-func (r *Router) invoke(ctx arpc.Context, handler arpc.Handler) error {
-	h := handler
-	for i := len(r.middleware) - 1; i >= 0; i-- {
-		h = r.middleware[i](h)
-	}
-
-	if h == nil {
-		return arpc.ErrNoHandler
-	}
-
-	return h(ctx)
+	ctx.SetHandler(handler)
+	ctx.SetMiddleware(r.handlers)
+	return ctx.Next()
 }
 
 func (r *Router) Register(cb interface{}, opts ...arpc.MiscOption) error {

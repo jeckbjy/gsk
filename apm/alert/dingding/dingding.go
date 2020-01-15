@@ -72,7 +72,7 @@ func (a *ddAlert) Send(event *alert.Event) error {
 		}
 		opt := a.getOptions(event.Tag)
 		if opt == nil {
-			return errorx.ErrNoConfig
+			return errorx.ErrInvalidConfig
 		}
 		msg.At.AtMobiles = opt.atMobileList
 		msg.At.IsAtAll = opt.AtAll

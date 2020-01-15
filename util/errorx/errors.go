@@ -3,6 +3,13 @@ package errorx
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/jeckbjy/gsk/util/idgen/sid"
 )
 
 var (
@@ -14,64 +21,103 @@ var (
 	ErrHasRegistered = errors.New("has registered")
 	ErrInvalidId     = errors.New("invalid id")
 	ErrInvalidParam  = errors.New("invalid param")
-	ErrNoConfig      = errors.New("no config")
+	ErrInvalidConfig = errors.New("invalid config")
 )
 
 // 扩展error接口,方便外部使用
-// 错误信息需要细分,比如DB错误,系统错误,IO错误,逻辑错误
-// 上层逻辑可以根据错误的类型做不同的处理,
-// 比如严重的系统需要上报,客户端业务错误可以单纯记录日志,并通知前端
-// 错误可以有一个全局唯一ID,方便追踪查询
-// 错误信息可以记录一些当时的环境变量,方便复现与调试
-// Unwrap可以获取原始错误信息,比如DB操作错误
+// ID:全局唯一ID,用于追踪查询
+// Code:与http编码保持一致
+// Status: 包含两部分,http默认信息以及自定义信息,逗号分隔
+// Unwrap: 返回原始错误信息,比如DB error
+// Debug:  会以json形式返回更加详细的错误信息
+// Error:  仅返回错误编号和ID,保证客户端不会窃取到服务器调试信息
 type Error interface {
 	error
-	Category() int
 	ID() string
 	Code() int
 	Status() string
-	Detail() string
 	Unwrap() error
+	Debug() string
 }
 
-func New() Error {
-	return &_UniformError{}
+// New 创建Error
+func New(err error, code int, format string, args ...interface{}) Error {
+	return NewWithSkip(3, err, code, format, args...)
 }
 
-type _UniformError struct {
-	category int
-	id       string
-	code     int
-	status   string
-	detail   string
-	raw      error
+// 区别于New,可以外部指定skip
+func NewWithSkip(skip int, err error, code int, format string, args ...interface{}) Error {
+	id, _ := sid.Generate()
+	builder := strings.Builder{}
+	if code <= http.StatusNetworkAuthenticationRequired {
+		status := http.StatusText(code)
+		if status != "" {
+			builder.WriteString("[")
+			builder.WriteString(status)
+			builder.WriteString("]")
+		}
+	}
+	detail := fmt.Sprintf(format, args...)
+	if detail != "" {
+		if builder.Len() > 0 {
+			builder.WriteString(" ")
+		}
+		builder.WriteString(detail)
+	}
+
+	return &xerror{
+		XID:     id,
+		XCode:   code,
+		XStatus: builder.String(),
+		XCaller: getCaller(skip),
+		err:     err,
+	}
 }
 
-func (e *_UniformError) Error() string {
+type xerror struct {
+	XID     string `json:"id"`
+	XCode   int    `json:"code"`
+	XStatus string `json:"status"`
+	XErr    string `json:"err,omitempty"`
+	XCaller string `json:"caller"`
+	err     error
+}
+
+func (e *xerror) ID() string {
+	return e.XID
+}
+
+func (e *xerror) Code() int {
+	return e.XCode
+}
+
+func (e *xerror) Status() string {
+	return e.XStatus
+}
+
+func (e *xerror) Unwrap() error {
+	return e.err
+}
+
+func (e *xerror) Error() string {
+	return fmt.Sprintf("%d %s", e.XCode, e.XID)
+}
+
+func (e *xerror) Debug() string {
+	if e.XErr == "" && e.err != nil {
+		e.XErr = e.err.Error()
+	}
 	b, _ := json.Marshal(e)
 	return string(b)
 }
 
-func (e *_UniformError) Category() int {
-	return e.category
-}
-
-func (e *_UniformError) ID() string {
-	return e.id
-}
-
-func (e *_UniformError) Code() int {
-	return e.code
-}
-
-func (e *_UniformError) Status() string {
-	return e.status
-}
-
-func (e *_UniformError) Detail() string {
-	return e.detail
-}
-
-func (e *_UniformError) Unwrap() error {
-	return e.raw
+func getCaller(skip int) string {
+	pc, _, _, _ := runtime.Caller(skip)
+	f := runtime.FuncForPC(pc)
+	file, line := f.FileLine(pc)
+	name := f.Name()
+	if idx := strings.LastIndexByte(name, '.'); idx != -1 {
+		name = name[idx+1:]
+	}
+	return fmt.Sprintf("%s:%d[%s]", filepath.Base(file), line, name)
 }

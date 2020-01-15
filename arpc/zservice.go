@@ -14,6 +14,7 @@ var (
 	ErrInvalidFuture   = errors.New("invalid future")
 	ErrTimeout         = errors.New("timeout")
 	ErrNotFoundID      = errors.New("not found id")
+	ErrInvalidParam    = errors.New("invalid param")
 )
 
 type Server interface {

@@ -3,8 +3,6 @@ package packet
 import (
 	"errors"
 
-	"github.com/jeckbjy/gsk/util/errorx"
-
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/util/buffer"
@@ -198,7 +196,7 @@ func (p *Packet) decodeNameMethod(str string) {
 
 func (p *Packet) Encode(data *buffer.Buffer) error {
 	if data == nil {
-		return errorx.ErrInvalidParam
+		return arpc.ErrInvalidParam
 	}
 	p.buffer = data
 
@@ -247,7 +245,7 @@ func (p *Packet) Encode(data *buffer.Buffer) error {
 
 func (p *Packet) Decode(data *buffer.Buffer) (err error) {
 	if data == nil {
-		return errorx.ErrInvalidParam
+		return arpc.ErrInvalidParam
 	}
 	p.buffer = data
 	r := Reader{}

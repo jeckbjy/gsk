@@ -41,3 +41,4 @@ Circuit Breakers Pattern
 - [boomer兼容Locust压力测试](https://github.com/myzhan/boomer)
 - [http压力测试](https://github.com/link1st/go-stress-testing)
 - [开源APM](https://blog.csdn.net/konglongaa/article/details/55807192)
+- [测试框架比较](https://bmuschko.com/blog/go-testing-frameworks/)

@@ -18,12 +18,19 @@ func NewContext() Context {
 	return gContextFactory()
 }
 
+// SetRouter 设置全局Router
 func SetRouter(r Router) {
 	gRouter.Store(r)
 }
 
+// GetRouter 获取全局Router
 func GetRouter() Router {
 	return gRouter.Load().(Router)
+}
+
+// Use 设置全局Middleware
+func Use(middleware HandlerFunc) {
+	GetRouter().Use(middleware)
 }
 
 func SetIDProvider(p IDProvider) {

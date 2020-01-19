@@ -14,13 +14,13 @@ func (b *Builder) WithFields(fields map[string]string) *Builder {
 
 func (b *Builder) Log(lv Level, args ...interface{}) {
 	if lv >= b.logger.level {
-		b.logger.Write(lv, b.fields, 1, fmt.Sprint(args...))
+		b.logger.Write(lv, b.fields, 3, fmt.Sprint(args...))
 	}
 }
 
 func (b *Builder) Logf(lv Level, format string, args ...interface{}) {
 	if lv >= b.logger.level {
-		b.logger.Write(lv, b.fields, 1, fmt.Sprintf(format, args...))
+		b.logger.Write(lv, b.fields, 3, fmt.Sprintf(format, args...))
 	}
 }
 

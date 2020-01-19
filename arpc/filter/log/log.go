@@ -38,7 +38,7 @@ func (f *logFilter) need(mask int) bool {
 func (f *logFilter) HandleRead(ctx anet.FilterCtx) error {
 	if f.need(Read) {
 		if data, ok := ctx.Data().(*buffer.Buffer); ok {
-			alog.Debugf("read data:len=%+v\n", data.Len())
+			alog.Debugf("read data:len=%+v,connID=%+v\n", data.Len(), ctx.Conn().ID())
 		}
 	}
 
@@ -48,7 +48,7 @@ func (f *logFilter) HandleRead(ctx anet.FilterCtx) error {
 func (f *logFilter) HandleWrite(ctx anet.FilterCtx) error {
 	if f.need(Write) {
 		if data, ok := ctx.Data().(*buffer.Buffer); ok {
-			alog.Debug("send data:len=%+v", data.Len())
+			alog.Debugf("send data:len=%+v,connID=%+v", data.Len(), ctx.Conn().ID())
 		}
 	}
 	return nil
@@ -57,11 +57,11 @@ func (f *logFilter) HandleWrite(ctx anet.FilterCtx) error {
 func (f *logFilter) HandleOpen(ctx anet.FilterCtx) error {
 	conn := ctx.Conn()
 	if f.need(Connect) && conn.IsDial() {
-		alog.Debugf("connect success, addr=%+v", conn.RemoteAddr())
+		alog.Debugf("connect success, addr=%+v,connID=%+v", conn.RemoteAddr(), ctx.Conn().ID())
 	}
 
 	if f.need(Accept) && !conn.IsDial() {
-		alog.Debugf("accept new conn, addr=%+v", ctx.Conn().RemoteAddr())
+		alog.Debugf("accept new conn, addr=%+v,connID=%+v", ctx.Conn().RemoteAddr(), ctx.Conn().ID())
 	}
 
 	return nil
@@ -69,7 +69,7 @@ func (f *logFilter) HandleOpen(ctx anet.FilterCtx) error {
 
 func (f *logFilter) HandleClose(ctx anet.FilterCtx) error {
 	if f.need(Close) {
-		alog.Debugf("close conn, %+v", ctx.Conn().RemoteAddr())
+		alog.Debugf("close conn, addr=%+v,connID=%+v", ctx.Conn().RemoteAddr(), ctx.Conn().ID())
 	}
 
 	return nil
@@ -77,7 +77,7 @@ func (f *logFilter) HandleClose(ctx anet.FilterCtx) error {
 
 func (f *logFilter) HandleError(ctx anet.FilterCtx) error {
 	if f.need(Error) && ctx.Error() != nil {
-		alog.Errorf("conn error, %+v", ctx.Error())
+		alog.Errorf("conn error, err=%+v,connID=%+v", ctx.Error(), ctx.Conn().ID())
 	}
 
 	return nil

@@ -60,7 +60,7 @@ func (r *MsgRouter) find(pkg arpc.Packet) *_MsgInfo {
 
 func (r *MsgRouter) Register(cb interface{}, o *arpc.MiscOptions) error {
 	v := reflect.ValueOf(cb)
-	handler, err := toHandler(&v, cb)
+	handler, err := toHandler(v, cb)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (r *MsgRouter) Register(cb interface{}, o *arpc.MiscOptions) error {
 	return err
 }
 
-func toHandler(v *reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
+func toHandler(v reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
 	// func(ctx Context) error
 	if handler, ok := cb.(arpc.HandlerFunc); ok {
 		return handler, nil
@@ -120,7 +120,8 @@ func toHandler(v *reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
 		return nil, arpc.ErrNotSupport
 	}
 
-	if t.NumIn() != 3 || t.NumOut() != 1 || !isContext(t.In(0)) || !isError(t.Out(0)) {
+	if t.NumIn() != 3 || t.NumOut() != 1 ||
+		!isContext(t.In(0)) || !isError(t.Out(0)) || !isMessage(t.In(2)) {
 		return nil, arpc.ErrInvalidHandler
 	}
 
@@ -128,8 +129,8 @@ func toHandler(v *reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
 	// func(ctx Context, req *XXRequest, rsp *XXResponse) error
 	handler := func(ctx arpc.Context) error {
 		req := ctx.Message()
-		if req.Body() != nil {
-			if err := arpc.DecodeBody(req, reflect.New(t.In(0).Elem()).Interface()); err != nil {
+		if req.Body() == nil {
+			if err := arpc.DecodeBody(req, reflect.New(t.In(1).Elem()).Interface()); err != nil {
 				return err
 			}
 		}
@@ -137,11 +138,13 @@ func toHandler(v *reflect.Value, cb interface{}) (arpc.HandlerFunc, error) {
 		// auto create response
 		rsp := ctx.Response()
 		if rsp == nil {
-			msg := reflect.New(t.In(2))
+			msg := reflect.New(t.In(2).Elem())
 			rsp = arpc.NewPacket()
+			rsp.SetAck(true)
 			rsp.SetSeqID(req.SeqID())
-			rsp.SetBody(rsp)
-			_ = arpc.GetIDProvider().Fill(rsp, msg)
+			rsp.SetBody(msg.Interface())
+			_ = arpc.GetIDProvider().Fill(rsp, msg.Interface())
+			ctx.SetResponse(rsp)
 		}
 
 		in := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(req.Body()), reflect.ValueOf(rsp.Body())}

@@ -22,7 +22,7 @@ func TestRPC(t *testing.T) {
 	srv := New(name)
 	// register callback
 	if err := srv.Register(func(ctx arpc.Context, req *echoReq, rsp *echoRsp) error {
-		log.Printf("recv msg, %+v", req.Text)
+		log.Printf("[server] recv msg, %+v", req.Text)
 		rsp.Text = fmt.Sprintf("%s world", req.Text)
 		return nil
 	}); err != nil {
@@ -31,28 +31,29 @@ func TestRPC(t *testing.T) {
 
 	go srv.Run()
 
-	log.Printf("sleep for server start")
-	time.Sleep(time.Second)
-	log.Printf("try call")
+	log.Printf("wait for server start")
+	time.Sleep(time.Millisecond * 20)
 
 	// synchronous call
+	log.Printf("[client] try call sync")
 	rsp := &echoRsp{}
-	if err := srv.Call(name, &echoReq{Text: "sync,hello"}, rsp); err != nil {
+	if err := srv.Call(name, &echoReq{Text: "sync hello"}, rsp); err != nil {
 		t.Fatal(err)
 	} else {
-		log.Printf("sync rsp,%s", rsp.Text)
+		log.Printf("[client] rsp,%s", rsp.Text)
 	}
 
-	// async call
-	err := srv.Call(name, &echoReq{Text: "async,hello"}, func(rsp *echoRsp) error {
-		log.Printf("async rsp,%s", rsp.Text)
+	// asynchronous call
+	log.Printf("[client] try call async")
+	err := srv.Call(name, &echoReq{Text: "async hello"}, func(rsp *echoRsp) error {
+		log.Printf("[client] rsp,%s", rsp.Text)
 		return nil
 	})
 
 	if err != nil {
 		t.Fatal(err)
 	} else {
-		log.Printf("async call ok")
+		log.Printf("[client] async call ok")
 	}
 
 	time.Sleep(time.Second * 3)

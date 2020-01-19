@@ -55,7 +55,9 @@ func (w *Writer) PutBytes(v []byte) {
 }
 
 func (w *Writer) WriteBool(v bool, mask uint64) {
-	w.flag |= mask
+	if v {
+		w.flag |= mask
+	}
 }
 
 func (w *Writer) WriteString(v string, mask uint64) {

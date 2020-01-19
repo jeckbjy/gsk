@@ -52,6 +52,7 @@ type Tran interface {
 
 // Conn 异步收发消息
 type Conn interface {
+	ID() int                         // 唯一自增ID,由底层自动生成
 	Tran() Tran                      // Transport
 	Tag() string                     // 额外标识类型
 	Get(key string) interface{}      // 获取自定义数据

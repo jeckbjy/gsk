@@ -13,7 +13,6 @@ const (
 	LevelError
 	LevelFatal
 	LevelOff
-	LevelInherit // 从logger继承
 )
 
 type Level uint8

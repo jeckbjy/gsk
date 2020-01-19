@@ -9,6 +9,8 @@ import (
 	"github.com/jeckbjy/gsk/util/buffer"
 )
 
+var gConnMaxID uint32
+
 func NewNetConn(tran anet.Tran, client bool, tag string) *NetConn {
 	conn := &NetConn{}
 	conn.Init(tran, client, tag)
@@ -17,6 +19,7 @@ func NewNetConn(tran anet.Tran, client bool, tag string) *NetConn {
 
 // 封装基础功能
 type Conn struct {
+	id         int                    // 自增ID
 	tran       anet.Tran              // transport
 	rmux       sync.Mutex             // 读锁
 	rbuf       *buffer.Buffer         // 读缓存
@@ -40,10 +43,16 @@ type NetConn struct {
 }
 
 func (c *Conn) Init(tran anet.Tran, client bool, tag string) {
+	id := atomic.AddUint32(&gConnMaxID, 1)
+	c.id = int(id)
 	c.tran = tran
 	c.client = client
 	c.tag = tag
 	c.rbuf = buffer.New()
+}
+
+func (c *Conn) ID() int {
+	return c.id
 }
 
 func (c *Conn) GetChain() anet.FilterChain {

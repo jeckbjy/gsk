@@ -52,11 +52,11 @@ func (c *_Client) Send(service string, msg interface{}, opts ...arpc.MiscOption)
 }
 
 // Call - 异步RPC调用
-//	req需要发送的消息,可以是arpc.Packet,也可以是普通消息结构体指针
+//	msg需要发送的消息,可以是arpc.Packet,也可以是普通消息结构体指针
 //	rsp可以是异步回调函数,也可以是同步结构体指针
 // 	底层必须保证调用了一次Add,则必须对应着调用一次Done,否则会永久等待
 // 	Call调用必须有一个超时,防止消息丢失后,永久无法释放
-func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ...arpc.MiscOption) error {
+func (c *_Client) Call(service string, msg interface{}, rsp interface{}, opts ...arpc.MiscOption) error {
 	o := &arpc.MiscOptions{}
 	o.Init(opts...)
 	o.Response = rsp
@@ -85,10 +85,11 @@ func (c *_Client) Call(service string, req interface{}, rsp interface{}, opts ..
 		}
 	}
 
-	pkg := c.newRequest(req, o)
-	pkg.SetInternal(o)
+	req := c.newRequest(msg, o)
+	req.SetInternal(o)
+	req.SetSeqID(xid.New().String())
 
-	err = c.sendMsg(next, pkg)
+	err = c.sendMsg(next, req)
 	if err != nil {
 		return err
 	}

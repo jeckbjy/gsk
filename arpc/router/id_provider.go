@@ -63,9 +63,15 @@ func (p *IDProvider) Fill(pkg arpc.Packet, msg interface{}) error {
 	}
 
 	var err error
+	var name string
 	t := reflect.TypeOf(msg).Elem()
+	if t.Kind() == reflect.Ptr {
+		name = t.Elem().Name()
+	} else {
+		name = t.Name()
+	}
+
 	p.mux.RLock()
-	name := t.Name()
 	if id, ok := p.nameDict[name]; ok {
 		pkg.SetMsgID(id)
 	} else if p.bindName {

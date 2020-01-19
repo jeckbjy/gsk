@@ -159,7 +159,7 @@ func (l *Logger) Run() {
 			l.mux.Lock()
 			for _, channel := range l.channels {
 				lv := channel.GetLevel()
-				if lv != LevelInherit && e.Level > lv {
+				if e.Level < lv {
 					continue
 				}
 
@@ -223,13 +223,13 @@ func (l *Logger) Write(lv Level, fields map[string]string, skipFrames int, text 
 // TODO: fmt.Sprint 会紧凑的合并到一起,期望能自动添加分隔符
 func (l *Logger) Log(lv Level, args ...interface{}) {
 	if lv >= l.level {
-		l.Write(lv, nil, 1, fmt.Sprint(args...))
+		l.Write(lv, nil, 3, fmt.Sprint(args...))
 	}
 }
 
 func (l *Logger) Logf(lv Level, format string, args ...interface{}) {
 	if lv >= l.level {
-		l.Write(lv, nil, 1, fmt.Sprintf(format, args...))
+		l.Write(lv, nil, 3, fmt.Sprintf(format, args...))
 	}
 }
 

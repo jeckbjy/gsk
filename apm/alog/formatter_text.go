@@ -1,6 +1,6 @@
 package alog
 
-const DefaultTextLayout = "%l"
+const DefaultTextLayout = "[%L %D %F] %m"
 
 func NewTextFormatter(layout string) (Formatter, error) {
 	if layout == "" {

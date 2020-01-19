@@ -49,5 +49,5 @@ func TestLogging(t *testing.T) {
 	a := 1
 	b := "hello"
 	Trace(a, b)
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Second)
 }

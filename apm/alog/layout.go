@@ -178,6 +178,7 @@ func (l *Layout) Format(msg *Entry) string {
 		}
 	}
 
+	lb.AddNewLine()
 	return lb.String()
 }
 
@@ -204,6 +205,7 @@ func toUpper(x byte) byte {
 
 type _LayoutBuilder struct {
 	builder bytes.Buffer
+	last    byte
 }
 
 func (l *_LayoutBuilder) Put(data interface{}, width string) {
@@ -220,9 +222,16 @@ func (l *_LayoutBuilder) Put(data interface{}, width string) {
 
 	if len(width) > 0 {
 		text = fmt.Sprintf("%"+width+"s", text)
-		l.builder.WriteString(text)
-	} else {
-		l.builder.WriteString(text)
+	}
+
+	l.last = text[len(text)-1]
+	l.builder.WriteString(text)
+}
+
+// 添加换行
+func (l *_LayoutBuilder) AddNewLine() {
+	if l.builder.Len() > 0 && l.last != '\n' {
+		l.builder.WriteByte('\n')
 	}
 }
 

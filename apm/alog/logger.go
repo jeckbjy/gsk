@@ -220,12 +220,17 @@ func (l *Logger) Write(lv Level, fields map[string]string, skipFrames int, text 
 	l.Push(e)
 }
 
+// TODO: fmt.Sprint 会紧凑的合并到一起,期望能自动添加分隔符
 func (l *Logger) Log(lv Level, args ...interface{}) {
-	l.Write(lv, nil, 1, fmt.Sprint(args...))
+	if lv >= l.level {
+		l.Write(lv, nil, 1, fmt.Sprint(args...))
+	}
 }
 
 func (l *Logger) Logf(lv Level, format string, args ...interface{}) {
-	l.Write(lv, nil, 1, fmt.Sprintf(format, args...))
+	if lv >= l.level {
+		l.Write(lv, nil, 1, fmt.Sprintf(format, args...))
+	}
 }
 
 func (l *Logger) Trace(args ...interface{}) {

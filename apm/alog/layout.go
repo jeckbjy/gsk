@@ -28,8 +28,8 @@ func NewLayout(format string) (*Layout, error) {
 //
 // %t short time format e.g. "15:04:05"
 // %T long time format e.g. "15:04:05.999"
-// %d short date format e.g. "2006-01-02"
-// %D long date format e.g. "2006-01-02T15:04:05"
+// %d short date format e.g. "2006/01/02"
+// %D long date format e.g. "2006/01/02 15:04:05"
 // %r RFC1123  date format e.g. Mon, 02 Jan 2006 15:04:05 MST
 // %R RFC1123Z date format e.g. Mon, 02 Jan 2006 15:04:05 -0700
 // %o RFC3339  date format e.g. 2006-01-02T15:04:05Z07:00
@@ -154,9 +154,9 @@ func (l *Layout) Format(msg *Entry) string {
 		case 'T':
 			lb.Put(msg.Time.Format("15:04:05.000"), act.Width)
 		case 'd':
-			lb.Put(msg.Time.Format("2006-01-02"), act.Width)
+			lb.Put(msg.Time.Format("2006/01/02"), act.Width)
 		case 'D':
-			lb.Put(msg.Time.Format("2006-01-02T15:04:05"), act.Width)
+			lb.Put(msg.Time.Format("2006/01/02 15:04:05"), act.Width)
 		case 'r':
 			lb.Put(msg.Time.Format(time.RFC1123), act.Width)
 		case 'R':

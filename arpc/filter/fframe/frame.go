@@ -47,7 +47,9 @@ func (f *frameFilter) HandleRead(ctx anet.FilterCtx) error {
 	data, err := f.frame.Decode(buff)
 	if err != nil {
 		if err == frame.ErrIncomplete {
-			err = nil
+			// 数据不全,终止执行但不是错误
+			ctx.Abort()
+			return nil
 		}
 		return err
 	}

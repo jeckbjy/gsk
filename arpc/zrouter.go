@@ -66,7 +66,7 @@ type Context interface {
 	SetResponse(rsp Packet)             // 按需设置Response
 	Send(msg interface{}) error         // 发送消息,不关心返回结果
 	Abort(err error)                    // 手动中止调用
-	Next() error                        // 调用下一个，返回错误则自动中止
+	Next() error                        // 调用下一个,返回错误则自动中止
 }
 
 // 消息路由

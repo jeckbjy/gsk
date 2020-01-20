@@ -22,7 +22,7 @@ func TestRPC(t *testing.T) {
 	srv := New(name)
 	// register callback
 	if err := srv.Register(func(ctx arpc.Context, req *echoReq, rsp *echoRsp) error {
-		log.Printf("[server] recv msg, %+v", req.Text)
+		log.Printf("[server] recv msg,%+v\n", req.Text)
 		rsp.Text = fmt.Sprintf("%s world", req.Text)
 		return nil
 	}); err != nil {
@@ -40,13 +40,13 @@ func TestRPC(t *testing.T) {
 	if err := srv.Call(name, &echoReq{Text: "sync hello"}, rsp); err != nil {
 		t.Fatal(err)
 	} else {
-		log.Printf("[client] rsp,%s", rsp.Text)
+		log.Printf("[client] recv response,%s", rsp.Text)
 	}
 
 	// asynchronous call
 	log.Printf("[client] try call async")
 	err := srv.Call(name, &echoReq{Text: "async hello"}, func(rsp *echoRsp) error {
-		log.Printf("[client] rsp,%s", rsp.Text)
+		log.Printf("[client] recv response,%s", rsp.Text)
 		return nil
 	})
 
@@ -56,7 +56,7 @@ func TestRPC(t *testing.T) {
 		log.Printf("[client] async call ok")
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	srv.Exit()
 	t.Log("finish")
 }

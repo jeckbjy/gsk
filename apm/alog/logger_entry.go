@@ -21,6 +21,13 @@ type Entry struct {
 	outputs   map[int][]byte
 }
 
+// 重置数据,复用
+func (e *Entry) Reset() {
+	e.filename = ""
+	e.next = nil
+	e.outputs = make(map[int][]byte)
+}
+
 // 返回文件名,不包含名字
 func (e *Entry) FileName() string {
 	if e.filename == "" {

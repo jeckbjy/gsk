@@ -192,6 +192,8 @@ func (l *Logger) process(e *Entry) {
 		channel.Write(e)
 	}
 
+	// 注意:这里使用完就回收了
+	// 如果希望post另外的协程中处理,需要单独拷贝一份,或者直接保存序列化后的结果
 	l.pool.Put(e)
 }
 
@@ -239,6 +241,7 @@ func (l *Logger) Write(lv Level, fields map[string]string, skipFrames int, text 
 	l.mux.Unlock()
 
 	e := l.pool.Get().(*Entry)
+	e.Reset()
 	e.Frame = getFrame(skipFrames)
 	e.formatter = formatter
 	e.Time = time.Now()

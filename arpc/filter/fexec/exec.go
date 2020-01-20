@@ -62,6 +62,8 @@ func (f *execFilter) HandleRead(ctx anet.FilterCtx) error {
 		return err
 	}
 
+	//log.Printf("recv msg,%+v,%+v,%+v,%+v\n", msg.IsAck(), msg.MsgID(), msg.Name(), msg.SeqID())
+
 	taskCtx := arpc.NewContext()
 	taskCtx.Init(ctx.Conn(), msg)
 	task := newTask(taskCtx, f.router)

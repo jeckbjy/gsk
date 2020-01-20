@@ -16,26 +16,23 @@ type Queue struct {
 	tail *Node
 }
 
-func (l *Queue) Swap(o *Queue) {
-	*l, *o = *o, *l
+func (q *Queue) Swap(o *Queue) {
+	*q, *o = *o, *q
 }
 
-func (l *Queue) Empty() bool {
-	return l.head == nil
+func (q *Queue) Empty() bool {
+	return q.head == nil
 }
 
-func (l *Queue) Push(task exec.Task) {
+func (q *Queue) Push(task exec.Task) {
 	n := gPool.Obtain()
 	n.task = task
-	l.pushNode(n)
+	q.pushNode(n)
 }
 
-func (l *Queue) Pop() exec.Task {
-	if l.head != nil {
-		n := l.head
-		l.head = n.next
-		n.next = nil
-		n.prev = nil
+func (q *Queue) Pop() exec.Task {
+	n := q.popNode()
+	if n != nil {
 		t := n.task
 		gPool.Free(n)
 		return t
@@ -44,32 +41,37 @@ func (l *Queue) Pop() exec.Task {
 	return nil
 }
 
-func (l *Queue) pushNode(n *Node) {
-	if l.tail == nil {
-		l.head = n
-		l.tail = n
+func (q *Queue) pushNode(n *Node) {
+	if q.tail == nil {
+		q.head = n
+		q.tail = n
 	} else {
-		n.prev = l.tail
-		l.tail.next = n
+		n.prev = q.tail
+		q.tail.next = n
+		q.tail = n
 	}
 }
 
 // 获取第一个node
-func (l *Queue) popNode() *Node {
-	if l.head != nil {
-		n := l.head
-		l.head = n.next
-		n.next = nil
-		n.prev = nil
-		return n
+func (q *Queue) popNode() *Node {
+	if q.head != nil {
+		node := q.head
+		next := node.next
+		q.head = next
+		if next == nil {
+			q.tail = nil
+		}
+
+		node.next = nil
+		return node
 	}
 
 	return nil
 }
 
-func (l *Queue) Process() {
-	for !l.Empty() {
-		task := l.Pop()
+func (q *Queue) Process() {
+	for !q.Empty() {
+		task := q.Pop()
 		_ = task.Run()
 	}
 }

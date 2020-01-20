@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"math"
 	"sync"
 
@@ -26,7 +27,7 @@ type Context struct {
 	handler arpc.HandlerFunc
 	chain   arpc.HandlerChain
 	conn    anet.Conn
-	req     arpc.Packet
+	msg     arpc.Packet
 	rsp     arpc.Packet
 	data    interface{}
 	err     error
@@ -35,7 +36,7 @@ type Context struct {
 
 func (c *Context) Init(conn anet.Conn, msg arpc.Packet) {
 	c.conn = conn
-	c.req = msg
+	c.msg = msg
 	c.handler = nil
 	c.chain = nil
 	c.rsp = nil
@@ -69,7 +70,7 @@ func (c *Context) Conn() anet.Conn {
 }
 
 func (c *Context) Message() arpc.Packet {
-	return c.req
+	return c.msg
 }
 
 func (c *Context) Response() arpc.Packet {
@@ -108,7 +109,12 @@ func (c *Context) Next() error {
 		if c.index == size {
 			// 执行handler
 			if c.handler == nil {
-				return arpc.ErrNoHandler
+				err := fmt.Errorf(
+					"no handler,ack=%v,msgid=%d,name=%s,seqid=%v",
+					c.msg.IsAck(), c.msg.MsgID(), c.msg.Name(), c.msg.SeqID(),
+				)
+				c.err = err
+				return err
 			}
 			return c.handler(c)
 		} else {

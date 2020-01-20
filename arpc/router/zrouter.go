@@ -26,17 +26,11 @@ func (r *Router) Use(middleware ...arpc.HandlerFunc) {
 func (r *Router) Handle(ctx arpc.Context) error {
 	var handler arpc.HandlerFunc
 	msg := ctx.Message()
-	if msg.IsAck() && msg.SeqID() != "" {
+	if msg.IsAck() && msg.SeqID() != 0 {
 		handler = r.rpc.Handle(ctx)
 	} else {
 		handler = r.msg.Handle(ctx)
 	}
-
-	//if handler == nil {
-	//	log.Printf("invalid handler,%+v,%+v\n", msg.Name(), msg.SeqID())
-	//} else {
-	//	log.Printf("find handler %+v,%+v\n", msg.Name(), msg.SeqID())
-	//}
 
 	ctx.SetHandler(handler)
 	ctx.SetMiddleware(r.handlers)

@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jeckbjy/gsk/util/idgen/xid"
-
 	"github.com/jeckbjy/gsk/anet"
 	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/selector"
@@ -76,18 +74,18 @@ func (c *_Client) Call(service string, msg interface{}, rsp interface{}, opts ..
 	if o.RetryNum > 0 {
 		o.RetryCB = func(req arpc.Packet) time.Duration {
 			// 防止重复接收,使用新的seqID
-			req.SetSeqID(xid.New().String())
+			req.SetSeqID(arpc.NewSequenceID())
 			if err := c.sendMsg(next, req); err != nil {
 				return 0
 			}
-			// 可以使用backoff方法计算ttl
+			// TODO:可以使用backoff方法计算ttl
 			return o.TTL
 		}
 	}
 
 	req := c.newRequest(msg, o)
 	req.SetInternal(o)
-	req.SetSeqID(xid.New().String())
+	req.SetSeqID(arpc.NewSequenceID())
 
 	err = c.sendMsg(next, req)
 	if err != nil {

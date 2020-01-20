@@ -16,7 +16,7 @@ type Packet struct {
 	contentType uint
 	ack         bool
 	status      arpc.Status
-	seqID       string
+	seqID       uint64
 	msgID       int
 	name        string
 	method      string
@@ -62,11 +62,11 @@ func (p *Packet) SetContentType(ct int) {
 	p.contentType = uint(ct)
 }
 
-func (p *Packet) SeqID() string {
+func (p *Packet) SeqID() uint64 {
 	return p.seqID
 }
 
-func (p *Packet) SetSeqID(id string) {
+func (p *Packet) SetSeqID(id uint64) {
 	p.seqID = id
 }
 
@@ -206,7 +206,7 @@ func (p *Packet) Encode(data *buffer.Buffer) error {
 	w.WriteBool(p.ack, 1<<arpc.HFAck)
 	w.WriteString(p.status.Encode(), 1<<arpc.HFStatus)
 	w.WriteUint(p.contentType, 1<<arpc.HFContentType)
-	w.WriteString(p.seqID, 1<<arpc.HFSeqID)
+	w.WriteUint64(p.seqID, 1<<arpc.HFSeqID)
 	w.WriteInt(p.msgID, 1<<arpc.HFMsgID)
 	w.WriteString(p.encodeNameMethod(), 1<<arpc.HFNameMethod)
 	w.WriteString(p.service, 1<<arpc.HFService)
@@ -265,7 +265,7 @@ func (p *Packet) Decode(data *buffer.Buffer) (err error) {
 	}
 	p.status.Decode(status)
 
-	if err := r.ReadString(&p.seqID, 1<<arpc.HFSeqID); err != nil {
+	if err := r.ReadUint64(&p.seqID, 1<<arpc.HFSeqID); err != nil {
 		return err
 	}
 	if err := r.ReadInt(&p.msgID, 1<<arpc.HFMsgID); err != nil {

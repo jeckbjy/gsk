@@ -3,6 +3,7 @@ package arpc
 import (
 	"fmt"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/jeckbjy/gsk/codec"
 	"github.com/jeckbjy/gsk/util/buffer"
@@ -26,13 +27,23 @@ func NewPacket() Packet {
 	return gPacketFactory()
 }
 
+var gSequenceMaxID uint32
+
+func NewSequenceID() uint64 {
+	id := atomic.AddUint32(&gSequenceMaxID, 1)
+	if id == 0 {
+		id = atomic.AddUint32(&gSequenceMaxID, 1)
+	}
+	return uint64(id)
+}
+
 type HeadFlag uint
 
 const (
 	HFAck         HeadFlag = 0  // 标识是否是消息应答,bool
 	HFStatus               = 1  // 返回状态信息,空表示OK,string
 	HFContentType          = 2  // 编码协议,0表示使用默认双方约定的协议,int
-	HFSeqID                = 3  // RPC唯一ID,string,改用uint64?
+	HFSeqID                = 3  // RPC唯一ID,改用uint64,0表示无效,系统只会产生低32位ID,高32位可以自定义使用,比如proxy用于存储connID
 	HFMsgID                = 4  // 静态唯一消息ID,非零值,负数表示系统消息,正数表示用户消息
 	HFNameMethod           = 5  // 编码格式,以/开始表示Method,否则表示消息名
 	HFService              = 6  // 调用服务名,string,和method合并成1个值?
@@ -89,8 +100,8 @@ type Packet interface {
 	SetStatus(code int, info string)
 	ContentType() int
 	SetContentType(ct int)
-	SeqID() string
-	SetSeqID(id string)
+	SeqID() uint64
+	SetSeqID(id uint64)
 	MsgID() int
 	SetMsgID(id int)
 	Name() string

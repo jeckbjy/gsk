@@ -19,11 +19,11 @@ type _RpcInfo struct {
 
 type RpcRouter struct {
 	mux   sync.Mutex
-	infos map[string]*_RpcInfo
+	infos map[uint64]*_RpcInfo
 }
 
 func (r *RpcRouter) Init() {
-	r.infos = make(map[string]*_RpcInfo)
+	r.infos = make(map[uint64]*_RpcInfo)
 }
 
 func (r *RpcRouter) Handle(ctx arpc.Context) arpc.HandlerFunc {
@@ -164,7 +164,7 @@ func (r *RpcRouter) add(req arpc.Packet, opts *arpc.MiscOptions, handler arpc.Ha
 	return nil
 }
 
-func (r *RpcRouter) onTimeout(seqID string) {
+func (r *RpcRouter) onTimeout(seqID uint64) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 	if info, ok := r.infos[seqID]; ok {

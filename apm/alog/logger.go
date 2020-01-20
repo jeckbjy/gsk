@@ -23,28 +23,31 @@ func New() *Logger {
 	return l
 }
 
-// Logger 异步Log,溢出会丢弃
+// Logger 支持同步或者异步日志输出,默认使用同步控制台输出
 type Logger struct {
-	mux       sync.Mutex
-	status    int
-	channels  []Channel
-	pool      sync.Pool
-	cond      Cond
-	queue     Queue
-	max       int
-	level     Level
-	fields    map[string]string // 可以设置一些全局的数据,比如env,service,node等
-	formatter Formatter
+	mux         sync.Mutex
+	status      int
+	channels    []Channel
+	pool        sync.Pool
+	cond        Cond
+	queue       Queue
+	max         int
+	level       Level
+	fields      map[string]string // 可以设置一些全局的数据,比如env,service,node等
+	formatter   Formatter         // 默认编码格式
+	synchronous bool              // 是否同步
 }
 
 func (l *Logger) AddChannel(c Channel) {
 	l.mux.Lock()
-	defer l.mux.Unlock()
 	c.SetLogger(l)
 	l.channels = append(l.channels, c)
+	l.mux.Unlock()
 }
 
 func (l *Logger) Level() Level {
+	l.mux.Lock()
+	defer l.mux.Unlock()
 	return l.level
 }
 
@@ -55,6 +58,8 @@ func (l *Logger) SetLevel(lv Level) {
 }
 
 func (l *Logger) Formatter() Formatter {
+	l.mux.Lock()
+	defer l.mux.Unlock()
 	return l.formatter
 }
 
@@ -65,12 +70,26 @@ func (l *Logger) SetFormatter(f Formatter) {
 }
 
 func (l *Logger) Max() int {
+	l.mux.Lock()
+	defer l.mux.Unlock()
 	return l.max
 }
 
 func (l *Logger) SetMax(max int) {
 	l.mux.Lock()
 	l.max = max
+	l.mux.Unlock()
+}
+
+func (l *Logger) Sync() bool {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	return l.synchronous
+}
+
+func (l *Logger) SetSync(s bool) {
+	l.mux.Lock()
+	l.synchronous = s
 	l.mux.Unlock()
 }
 
@@ -84,6 +103,8 @@ func (l *Logger) AddField(key, value string) {
 }
 
 func (l *Logger) GetField(key string) string {
+	l.mux.Lock()
+	defer l.mux.Unlock()
 	if l.fields != nil {
 		if v, ok := l.fields[key]; ok {
 			return v
@@ -91,6 +112,10 @@ func (l *Logger) GetField(key string) string {
 	}
 
 	return ""
+}
+
+func (l *Logger) WithFields(fields map[string]string) *Builder {
+	return &Builder{logger: l, fields: fields}
 }
 
 func (l *Logger) init() {
@@ -122,22 +147,6 @@ func (l *Logger) Stop() {
 }
 
 func (l *Logger) Run() {
-	l.mux.Lock()
-	if len(l.channels) == 0 {
-		l.channels = append(l.channels, NewTerminal())
-	}
-	if l.formatter == nil {
-		l.formatter, _ = NewTextFormatter("")
-	}
-
-	for _, c := range l.channels {
-		if err := c.Open(); err != nil {
-			fmt.Println(err)
-		}
-	}
-
-	l.mux.Unlock()
-
 	for {
 		quit := false
 		queue := Queue{}
@@ -154,19 +163,10 @@ func (l *Logger) Run() {
 			if e == nil {
 				break
 			}
-			e.formatter = l.formatter
 			// process
 			l.mux.Lock()
-			for _, channel := range l.channels {
-				lv := channel.GetLevel()
-				if e.Level < lv {
-					continue
-				}
-
-				channel.Write(e)
-			}
+			l.process(e)
 			l.mux.Unlock()
-			l.pool.Put(e)
 		}
 
 		if quit {
@@ -182,42 +182,76 @@ func (l *Logger) Run() {
 	l.mux.Unlock()
 }
 
-func (l *Logger) WithFields(fields map[string]string) *Builder {
-	return &Builder{logger: l, fields: fields}
+func (l *Logger) process(e *Entry) {
+	for _, channel := range l.channels {
+		lv := channel.GetLevel()
+		if e.Level < lv {
+			continue
+		}
+
+		channel.Write(e)
+	}
+
+	l.pool.Put(e)
 }
 
 func (l *Logger) Push(e *Entry) {
-	needRun := false
 	l.cond.Lock()
-	// overflow
-	if l.queue.Len() > l.max {
-		l.cond.Unlock()
-		return
-	}
-
-	l.queue.Push(e)
-	if l.status == statusNone {
-		l.status = statusRun
-		needRun = true
+	canSignal := false
+	if l.queue.Len() < l.max {
+		l.queue.Push(e)
+		canSignal = true
 	}
 	l.cond.Unlock()
-	l.cond.Signal()
-
-	if needRun {
-		go l.Run()
+	if canSignal {
+		l.cond.Signal()
 	}
 }
 
 func (l *Logger) Write(lv Level, fields map[string]string, skipFrames int, text string) {
+	l.mux.Lock()
+	if l.status == statusNone {
+		// 初始化设置默认参数
+		l.status = statusRun
+		if len(l.channels) == 0 {
+			// 从来没有设置过channel,默认使用同步控制台输出
+			l.synchronous = true
+			l.channels = append(l.channels, NewTerminal())
+		}
+
+		if l.formatter == nil {
+			l.formatter, _ = NewTextFormatter("")
+		}
+
+		for _, c := range l.channels {
+			if err := c.Open(); err != nil {
+				fmt.Println(err)
+			}
+		}
+		// 异步
+		if !l.synchronous {
+			go l.Run()
+		}
+	}
+
+	formatter := l.formatter
+	synchronous := l.synchronous
+	l.mux.Unlock()
+
 	e := l.pool.Get().(*Entry)
 	e.Frame = getFrame(skipFrames)
-	e.formatter = l.formatter
+	e.formatter = formatter
 	e.Time = time.Now()
 	e.Level = lv
 	e.Text = text
 	e.Fields = fields
 	e.logger = l
-	l.Push(e)
+
+	if synchronous {
+		l.process(e)
+	} else {
+		l.Push(e)
+	}
 }
 
 // TODO: fmt.Sprint 会紧凑的合并到一起,期望能自动添加分隔符

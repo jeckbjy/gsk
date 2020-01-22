@@ -1,6 +1,13 @@
 package driver
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrInvalidIndexName = errors.New("invalid index name")
+)
 
 // https://docs.mongodb.com/manual/reference/operator/query-comparison/
 // Query embedded document: $elemMatch vs. Dot Notation
@@ -23,17 +30,40 @@ const (
 	TOK_NOT
 )
 
-type OpenOptions struct {
-	Client interface{} // 原生的Client
-	Driver string
-	URI    string
+type FieldType int
+
+// 支持的数据类型
+const (
+	FTChar FieldType = 0
+)
+
+// 列信息,用于CreateTable
+type Column struct {
+	Name          string // 字段名
+	Type          string // 类型
+	Default       string // 默认值, 不需要双引号
+	NotNull       bool   // 是否非空
+	AutoIncrement bool   // 是否自增
+	PrimaryKey    bool   // 是否是主键
+	Size          int    // 类型大小
 }
 
-type IndexOptions struct {
-	Name       string
-	Background bool
-	Sparse     bool
-	Unique     bool
+// 简单数据表模型,不支持外键等操作
+type Model struct {
+	Name    string
+	Columns []Column
+	Indexes []Index
+}
+
+func (m *Model) Parse(model interface{}) error {
+	return nil
+}
+
+type OpenOptions struct {
+	URI string
+	//MaxIdleConns int           // 默认2
+	//MaxOpenConns int           // 默认0,不限制
+	//MaxLifetime  time.Duration // 默认0,不过期
 }
 
 type InsertOptions struct {

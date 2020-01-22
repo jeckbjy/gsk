@@ -17,6 +17,10 @@ type sqlBuilder struct {
 	last    byte
 }
 
+func (b *sqlBuilder) Init() {
+	b.builder.Grow(128)
+}
+
 func (b *sqlBuilder) Len() int {
 	return b.builder.Len()
 }

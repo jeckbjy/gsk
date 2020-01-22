@@ -38,6 +38,11 @@ func Decode(cursor Cursor, result interface{}) error {
 	}
 }
 
+// ParseModel 解析Model,获得Column信息
+func ParseModel(model interface{}) ([]Column, error) {
+	return nil, nil
+}
+
 //func ToFloat(data interface{}) (float64, error) {
 //	destType := reflect.TypeOf(float64(0))
 //	v := reflect.ValueOf(data)

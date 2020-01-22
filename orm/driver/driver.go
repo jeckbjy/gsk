@@ -57,6 +57,7 @@ func Drivers() []string {
 	return list
 }
 
+// Driver 数据库驱动,支持同时连接多个数据库
 type Driver interface {
 	Name() string
 	Open(opts *OpenOptions) error
@@ -66,12 +67,13 @@ type Driver interface {
 	Drop(name string) error
 }
 
+// Database 用于对某个特定数据库进行增删改查
 type Database interface {
-	Indexes(table string) ([]Index, error)
-	CreateIndex(table string, keys interface{}, opts *IndexOptions) error
+	Indexes(table string) ([]*Index, error)
+	CreateIndex(table string, index *Index) error
 	DropIndex(table string, name string) error
 
-	CreateTable(table string, schema interface{}) error
+	CreateTable(table string, columns []Column) error
 	DropTable(table string) error
 
 	Insert(table string, doc interface{}, opts *InsertOptions) (*InsertResult, error)

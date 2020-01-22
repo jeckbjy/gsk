@@ -15,7 +15,7 @@
 * 这里照搬了go-micro的一些设计,提供了更多微服务必备的组件,比如服务发现,消息队列等
 * 协议上的差异,gRPC使用的是http2,这里使用的是tcp
 
-## 特性与设计准则
+## 设计准则
 * 接口设计,易于扩展和理解
 * 异步网络,高性能
   - 默认提供基于原生tcp+读写goroutine的实现方案
@@ -35,11 +35,76 @@
 - **frame** 消息粘包处理
 - **broker** 消息队列接口(TODO)
 - **store** kv存储
-- **orm** 封装简单数据库操作,仅限于单表操作,不支持join等
+- **orm** 封装数据库CRUD操作,仅限于单表操作,不支持join,aggregate等复杂操作
 - **util** 收集了一些常用的辅助库,比如buffer,cache,errors,str,idgen,dsn等常用功能
 
 ## 示例代码
+```go
+package gsk
 
+import (
+	"fmt"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/jeckbjy/gsk/arpc"
+)
+
+type echoReq struct {
+	Text string `json:"text"`
+}
+
+type echoRsp struct {
+	Text string `json:"text"`
+}
+
+func TestRPC(t *testing.T) {
+	// 启动服务器
+	name := "echo"
+	srv := New(name)
+	// 注册回调: register callback
+	if err := srv.Register(func(ctx arpc.Context, req *echoReq, rsp *echoRsp) error {
+		log.Printf("[server] recv msg,%+v\n", req.Text)
+		rsp.Text = fmt.Sprintf("%s world", req.Text)
+		return nil
+	}); err != nil {
+		log.Fatal(err)
+	}
+
+	go srv.Run()
+
+	log.Printf("wait for server start")
+	time.Sleep(time.Millisecond * 20)
+
+	// 同步RPC调用 synchronous call
+	log.Printf("[client] try call sync")
+	rsp := &echoRsp{}
+	if err := srv.Call(name, &echoReq{Text: "sync hello"}, rsp); err != nil {
+		t.Fatal(err)
+	} else {
+		log.Printf("[client] recv response,%s", rsp.Text)
+	}
+
+	// 异步RPC调用 asynchronous call
+	log.Printf("[client] try call async")
+	err := srv.Call(name, &echoReq{Text: "async hello"}, func(rsp *echoRsp) error {
+		log.Printf("[client] recv response,%s", rsp.Text)
+		return nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		log.Printf("[client] async call ok")
+	}
+
+	time.Sleep(time.Second * 2)
+	srv.Exit()
+	t.Log("finish")
+}
+
+```
 ## 集成或参考的第三方库
 - [go-micro](https://github.com/micro/go-micro)
 - [backoff](https://github.com/cenkalti/backoff)

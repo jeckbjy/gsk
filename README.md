@@ -1,8 +1,12 @@
 # Go Server Kit(GO服务器开发全家桶)
 
+## 目标
+
+开发本库的一个终极目标是要使其能够快速搭建一个新的后端项目,它需要提供后端开发常见的底层功能,比如异步socket,异步rpc,服务器注册发现,线程模型,配置文件,定时器,测试框架,orm,cli,log,bi等功能,因为它最终面向的是业务开发,因此本库聚合很多开源框架,它不是针对的某一特定领域的库,同时该库也不该包含具体的业务逻辑,他的定位应该是通用的服务器开发中间件。
+
 ## 简介
-受[go-micro](https://github.com/micro/go-micro)启发，本库想实现一个高效,灵活,丰富的异步RPC游戏微服务框架,
-使用场景上更倾向于高性能游戏服务器。  
+
+受[go-micro](https://github.com/micro/go-micro)启发，本库想实现一个高效,灵活,丰富的异步RPC游戏微服务框架,使用场景上更倾向于高性能。  
 与go-micro最大的不同是,网络底层的改造,这里的网络底层更类似Netty。
 
 * 默认的网络是tcp,也更倾向于支持长连接服务器
@@ -36,7 +40,7 @@
 - **broker** 消息队列接口(TODO)
 - **store** kv存储
 - **orm** 封装数据库CRUD操作,仅限于单表操作,不支持join,aggregate等复杂操作
-- **util** 收集了一些常用的辅助库,比如buffer,cache,errors,str,idgen,dsn等常用功能
+- **util** 收集了一些常用的辅助库,比如buffer,cache,errors,str,idgen,dsn,定时器等常用功能
 
 ## 示例代码
 ```go

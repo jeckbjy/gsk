@@ -47,13 +47,14 @@ func Lock(key string, opts ...Option) (Locker, error) {
 	return l, nil
 }
 
-// 分布式锁系统,distributed locking system
+// Locking 分布式锁系统,distributed locking system
 // 可以基于redis实现,也可以基于consul,etcd等实现
 // 可选参数:
 // TTL:通常不需要设置,用于指示业务过期时间,防止服务器宕机永远无法释放锁
 // Timeout:用于指示Lock等待超时时间,0立即返回,-1表示永久等待,直到获取到锁
 //
 // 注意:因为目标是分布式锁,为了防止永久死锁,必须要设置一个过期,插件库来保证自动续期
+// TODO:如何抽象乐观锁?
 //
 // github.com/go-redsync/redsync
 type Locking interface {
@@ -61,6 +62,7 @@ type Locking interface {
 	Acquire(key string, opts *Options) (Locker, error)
 }
 
+// Locker 类似于sync.Locker，但是Lock会返回错误
 type Locker interface {
 	Lock() error
 	Unlock()

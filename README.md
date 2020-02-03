@@ -6,30 +6,32 @@
 
 ## 简介
 
-受[go-micro](https://github.com/micro/go-micro)启发，本库想实现一个高效,灵活,丰富的异步RPC游戏微服务框架,使用场景上更倾向于高性能。  
-与go-micro最大的不同是,网络底层的改造,这里的网络底层更类似Netty。
+受[go-micro](https://github.com/micro/go-micro)启发，本库想实现一个高效,灵活,丰富的异步RPC游戏微服务框架,使用场景上更倾向于高性能。
 
-* 默认的网络是tcp,也更倾向于支持长连接服务器
-* 所有的底层操作都默认是异步操作(Read,Write),上层RPC调用也是异步操作,可以通过Future转为同步调用
-* 更加灵活的FilterChain设计,类似netty
-* 更加灵活的线程模型,通常也需要定制,比如根据玩家UID哈希到不同的消息队列中
-* 更加灵活的编码协议,消息体可以是json,protobuf等编码格式,消息头使用私有协议,rpc通常使用URL来查找回调函数,而游戏通常只使用一个消息ID查找消息回调
+- 与go-micro最大的不同是,网络底层的改造,这里的网络底层更类似Netty。
+  - 默认的网络是tcp,也更倾向于支持长连接服务器
+  - 所有的底层操作都默认是异步操作(Read,Write),上层RPC调用也是异步操作,可以通过Future转为同步调用
+  - 更加灵活的FilterChain设计,类似netty
+  - 更加灵活的线程模型,通常也需要定制,比如根据玩家UID哈希到不同的消息队列中
+  - 更加灵活的编码协议,消息体可以是json,protobuf等编码格式,消息头使用私有协议,rpc通常使用URL来查找回调函数,而游戏通常只使用一个消息ID查找消息回调
 
-与gRPC的不同
-* 这里照搬了go-micro的一些设计,提供了更多微服务必备的组件,比如服务发现,消息队列等
-* 协议上的差异,gRPC使用的是http2,这里使用的是tcp
+- 与gRPC的不同
+  - 这里照搬了go-micro的一些设计,提供了更多微服务必备的组件,比如服务发现,消息队列等
+  - 协议上的差异,gRPC使用的是http2,这里使用的是tcp
 
 ## 设计准则
-* 异步网络,高性能
+
+- 异步网络,高性能
   - 默认提供基于原生tcp+读写goroutine的实现方案
   - 尝试性提供nio方案,更加高效,更节省内存
-* 接口设计,易扩展
-* 开箱即用,易上手
+- 接口设计,易扩展
+- 开箱即用,易上手
   - 每个接口都会提供一个默认实现,但不一定最高效,需要通过Plugin来提供高效的实现
-* 轻度依赖,易集成
+- 轻度依赖,易集成
   - 原则上尽量只依赖标准库,对于一些小的第三方库,直接集成在代码中,比较庞大的第三方库尽量放到plugin中实现
 
 ## 核心模块
+
 - **anet** 异步网络底层(asynchronous network),参考netty
 - **arpc** 异步RPC框架(asynchronous remote procedure call),主要功能,私有协议定义,消息粘包处理,Handler注册,消息路由,RPC调用等功能
 - **apm**  性能监控(Application Performance Management),主要功能:log,bi,熔断器,链路追踪等库的封装
@@ -43,6 +45,7 @@
 - **util** 收集了一些常用的辅助库,比如buffer,cache,errors,str,idgen,dsn,定时器等常用功能
 
 ## 示例代码
+
 ```go
 package gsk
 
@@ -109,7 +112,9 @@ func TestRPC(t *testing.T) {
 }
 
 ```
+
 ## 集成或参考的第三方库
+
 - [go-micro](https://github.com/micro/go-micro)
 - [backoff](https://github.com/cenkalti/backoff)
 - [backoff](https://github.com/rfyiamcool/backoff)
@@ -125,6 +130,7 @@ func TestRPC(t *testing.T) {
 - [dateparse](https://github.com/araddon/dateparse)
 
 ## 其他资料
+
 - [Functional Options Pattern in Go](https://halls-of-valhalla.org/beta/articles/functional-options-pattern-in-go,54/)
 - [Pattern](https://www.jianshu.com/p/5a3a09894bb5)
 - [GoPatterns](https://books.studygolang.com/go-patterns/)

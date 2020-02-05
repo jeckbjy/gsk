@@ -306,7 +306,7 @@ func (n *node) checkMethodNotAllowed() HandlerFunc {
 // - Reset it `Context#Reset()`
 // - Return it `Echo#ReleaseContext()`.
 func (r *Router) Find(method, path string, c Context) {
-	ctx := c.(*context)
+	ctx := c.(*_Context)
 	ctx.path = path
 	cn := r.tree // Current node as root
 

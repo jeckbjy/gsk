@@ -4,9 +4,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/jeckbjy/gsk/util/buffer"
-
+	"github.com/jeckbjy/gsk/arpc"
 	"github.com/jeckbjy/gsk/codec/jsonc"
+	"github.com/jeckbjy/gsk/util/buffer"
 )
 
 func TestEncode(t *testing.T) {
@@ -19,7 +19,7 @@ func TestEncode(t *testing.T) {
 	pkg := New()
 	pkg.SetAck(true)
 	pkg.SetMsgID(1)
-	pkg.SetSeqID("10")
+	pkg.SetSeqID(10)
 	pkg.SetName("test")
 	pkg.SetService("game")
 	pkg.SetCodec(codec)
@@ -41,7 +41,7 @@ func TestEncode(t *testing.T) {
 
 	bodyd := make(map[string]string)
 
-	if err := pkgd.DecodeBody(&bodyd); err != nil {
+	if err := arpc.DecodeBody(pkgd, &bodyd); err != nil {
 		t.Fatal(err)
 	}
 	t.Log(pkgd)

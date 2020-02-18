@@ -1,4 +1,5 @@
 # cli Command-line interface
+
 command解析参数,格式化输出命令,可用于控制台参数解析,也可以用于服务器端admin模块,
 这里要解决的问题是如何自动化的绑定数据并作简单的数据验证以及信息输出,以便于高效开发
 
@@ -8,12 +9,14 @@ command解析参数,格式化输出命令,可用于控制台参数解析,也可�
 cli文件下定义了所有用到的接口
 
 ## 特性
+
 - 基于反射自动解析参数
 - 支持简单的参数验证,比如参数个数验证,类型转换验证,参数范围验证
 - 支持默认参数
 - TODO:格式化输出help信息
 
 ## 使用示例
+
 ```go
 package cli
 
@@ -47,5 +50,7 @@ func (cmd *testCmd) Run(ctx Context) error {
 ```
 
 ## 常用的cli库
+
 - [cobra](https://github.com/spf13/cobra)
 - [urfave/cli](https://github.com/urfave/cli)
+- [go-flags](https://github.com/jessevdk/go-flags)

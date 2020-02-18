@@ -135,6 +135,7 @@ func TestRPC(t *testing.T) {
 - [Pattern](https://www.jianshu.com/p/5a3a09894bb5)
 - [GoPatterns](https://books.studygolang.com/go-patterns/)
 - [Go推荐的工程结构](https://github.com/golang-standards/project-layout)
+- [Pipeline Patterns](https://medium.com/statuscode/pipeline-patterns-in-go-a37bb3a7e61d)
 
 ## 参与讨论
 

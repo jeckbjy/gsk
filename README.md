@@ -138,6 +138,7 @@ func TestRPC(t *testing.T) {
 - [Pipeline Patterns](https://medium.com/statuscode/pipeline-patterns-in-go-a37bb3a7e61d)
 - [Go Tooling](https://www.alexedwards.net/blog/an-overview-of-go-tooling)
 - [Go Modules](https://github.com/golang/go/wiki/Modules#wont-minimal-version-selection-keep-developers-from-getting-important-updates)
+- [阿里中间件](http://jm.taobao.org/categories/)
 
 ## 参与讨论
 

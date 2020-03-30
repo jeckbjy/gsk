@@ -4,6 +4,10 @@
 api接口上跟mongodb更相似，该库并不能取代原生的db驱动，不能操作复杂命令(如Aggregate),不能连表操作,
 但是能满足大部分常见单表操作
 
+## 状态
+
+很多功能尚未实现,勿用
+
 ## 参考
 
 - https://github.com/jinzhu/gorm
